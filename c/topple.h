@@ -9,20 +9,22 @@
 
 
 typedef struct ASTNode   ASTNode;
-typedef struct Value     Value;
-typedef struct Stack     Stack;
+typedef struct Bytes     Bytes;
 typedef struct Primitive Primitive;
+typedef struct Stack     Stack;
+typedef struct Value     Value;
 
 
 noreturn void fail(const char *s);
 
 char *read_token(void);
 
-void     dup       (Value);
-void     discard   (Value);
-bool     truthy    (Value);
-uint64_t num_of_val(Value);
-Value    val_of_num(uint64_t);
+void     dup         (Value);
+void     discard     (Value);
+bool     truthy      (Value);
+uint64_t num_of_val  (Value);
+Value    val_of_num  (uint64_t);
+Value    expect_bytes(Value);
 
 Stack *stack_new (void);
 void   stack_push(Stack *, Value);
@@ -36,12 +38,14 @@ void       dump_ast      (ASTNode *);
 
 enum type {
     UNDEFINED,
+    BYTES,
     NUMBER,
 };
 
 struct Value {
     uint16_t type;
     union {
+        Bytes   *bytes;
         uint64_t number;
     };
 };
@@ -54,6 +58,13 @@ struct Stack {
 struct Primitive {
     char const *name;
     void      (*action)(Stack *);
+};
+
+struct Bytes {
+    size_t ref_count;
+    size_t len;
+    size_t cap;
+    unsigned char *contents;
 };
 
 struct ASTNode {

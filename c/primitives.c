@@ -82,6 +82,16 @@ static void tuck_(Stack *s)
 }
 
 
+static void over_(Stack *s)
+{
+    Value v1 = stack_pop(s);
+    Value v0 = stack_pop(s); dup(v0);
+    stack_push(s, v0);
+    stack_push(s, v1);
+    stack_push(s, v0);
+}
+
+
 static void rot_(Stack *s)
 {
     Value v2 = stack_pop(s);
@@ -118,6 +128,75 @@ static void dot_(Stack *s)
 }
 
 
+static void bytes_new_(Stack *s)
+{
+    Bytes *b = malloc(sizeof(Bytes));
+    b->ref_count = 1;
+    b->len = 0;
+    b->cap = 16;
+    b->contents = malloc(16);
+
+    Value v = { .type = BYTES, .bytes = b };
+    stack_push(s, v);
+}
+
+
+static void bytes_clear_(Stack *s)
+{
+    Value b = expect_bytes(stack_pop(s));
+    b.bytes->len = 0;
+    discard(b);
+}
+
+
+static void bytes_length_(Stack *s)
+{
+    Value b = expect_bytes(stack_pop(s));
+    stack_push(s, val_of_num(b.bytes->len));
+    discard(b);
+}
+
+
+static void bytes_push_(Stack *s)
+{
+    Value b = expect_bytes(stack_pop(s));
+    uint64_t c = num_of_val(stack_pop(s));
+
+    if (b.bytes->len == b.bytes->cap) {
+        b.bytes->cap *= 2;
+        b.bytes = realloc(b.bytes, b.bytes->cap);
+    }
+
+    b.bytes->contents[b.bytes->len++] = c % 256;
+    discard(b);
+}
+
+
+static void bytes_get_(Stack *s)
+{
+    Value b = expect_bytes(stack_pop(s));
+    uint64_t idx = num_of_val(stack_pop(s));
+
+    if (idx >= b.bytes->len)
+        fail("bytes index out of bounds");
+    stack_push(s, val_of_num(b.bytes->contents[idx]));
+    discard(b);
+}
+
+
+static void bytes_set_(Stack *s)
+{
+    Value b = expect_bytes(stack_pop(s));
+    uint64_t idx = num_of_val(stack_pop(s));
+    uint64_t c = num_of_val(stack_pop(s));
+
+    if (idx >= b.bytes->len)
+        fail("bytes index out of bounds");
+    b.bytes->contents[idx] = c % 256;
+    discard(b);
+}
+
+
 static Primitive primitives[] = {
     { .name = "+",    .action = add_   },
     { .name = "-",    .action = sub_   },
@@ -125,14 +204,25 @@ static Primitive primitives[] = {
     { .name = "/",    .action = div_   },
     { .name = "<<",   .action = shl_   },
     { .name = ">>",   .action = shr_   },
+
     { .name = "dup",  .action = dup_   },
     { .name = "drop", .action = drop_  },
     { .name = "swap", .action = swap_  },
     { .name = "nip",  .action = nip_   },
     { .name = "tuck", .action = tuck_  },
+    { .name = "over", .action = over_  },
     { .name = "rot",  .action = rot_   },
     { .name = "-rot", .action = unrot_ },
     { .name = "pick", .action = pick_  },
+
     { .name = ".",    .action = dot_   },
+
+    { .name = "bytes.new",    .action = bytes_new_    },
+    { .name = "bytes.clear",  .action = bytes_clear_  },
+    { .name = "bytes.length", .action = bytes_length_ },
+    { .name = "b%",           .action = bytes_push_   },
+    { .name = "b@",           .action = bytes_get_    },
+    { .name = "b!",           .action = bytes_set_    },
+
     { .name = NULL },
 };

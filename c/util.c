@@ -101,8 +101,38 @@ char *read_token()
 }
 
 
-void dup(Value v) {}
-void discard(Value v) {}
+void dup(Value v)
+{
+    switch (v.type) {
+    case UNDEFINED:
+    case NUMBER:
+        break;
+
+    case BYTES:
+        v.bytes->ref_count++;
+        break;
+    }
+}
+
+
+void discard(Value v)
+{
+    switch (v.type) {
+    case UNDEFINED:
+    case NUMBER:
+        break;
+
+    case BYTES:
+        v.bytes->ref_count--;
+
+        if (v.bytes->ref_count == 0) {
+            free(v.bytes->contents);
+            free(v.bytes);
+        }
+
+        break;
+    }
+}
 
 
 bool truthy(Value v)
@@ -123,6 +153,13 @@ uint64_t num_of_val(Value v)
 Value val_of_num(uint64_t n)
 {
     Value v = { .type = NUMBER, .number = n };
+    return v;
+}
+
+Value expect_bytes(Value v)
+{
+    if (v.type != BYTES)
+        fail("type error: expected bytes");
     return v;
 }
 
