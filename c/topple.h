@@ -24,6 +24,7 @@ void     discard     (Value);
 bool     truthy      (Value);
 uint64_t num_of_val  (Value);
 Value    val_of_num  (uint64_t);
+Value    val_of_bool (bool);
 Value    expect_bytes(Value);
 
 Stack *stack_new (void);

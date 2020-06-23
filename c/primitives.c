@@ -16,19 +16,28 @@ Primitive *find_primitive(const char *name)
 }
 
 
-#define ARITH(NAME, EXPR)                      \
+#define BINARY(NAME, EXPR)                     \
     static void NAME(Stack *s) {               \
         uint64_t r = num_of_val(stack_pop(s)); \
         uint64_t l = num_of_val(stack_pop(s)); \
-        stack_push(s, val_of_num(EXPR));       \
+        stack_push(s, (EXPR));                 \
     }
+#define ARITH(NAME, EXPR) BINARY(NAME, val_of_num(EXPR))
+#define COMP(NAME, EXPR) BINARY(NAME, val_of_bool(EXPR))
+
 ARITH(add_, l + r)
 ARITH(sub_, l - r)
 ARITH(mul_, l * r)
 // ARITH(div_, l / r)   -- need to check that (r != 0)
 ARITH(shl_, l << (r % 64))
 ARITH(shr_, l >> (r % 64))
-#undef ARITH
+
+COMP(eq_, l == r)
+COMP(ne_, l != r)
+COMP(lt_, l <  r)
+COMP(gt_, l >  r)
+COMP(le_, l <= r)
+COMP(ge_, l >= r)
 
 static void div_(Stack *s)
 {
@@ -38,6 +47,10 @@ static void div_(Stack *s)
         fail("division by zero");
     stack_push(s, val_of_num(l / r));
 }
+
+#undef COMP
+#undef ARITH
+#undef BINARY
 
 
 static void dup_(Stack *s)
@@ -204,6 +217,13 @@ static Primitive primitives[] = {
     { .name = "/",    .action = div_   },
     { .name = "<<",   .action = shl_   },
     { .name = ">>",   .action = shr_   },
+
+    { .name = "=",    .action = eq_    },
+    { .name = "<>",   .action = ne_    },
+    { .name = "<",    .action = lt_    },
+    { .name = ">",    .action = gt_    },
+    { .name = "<=",   .action = le_    },
+    { .name = ">=",   .action = ge_    },
 
     { .name = "dup",  .action = dup_   },
     { .name = "drop", .action = drop_  },

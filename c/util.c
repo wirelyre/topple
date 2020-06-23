@@ -156,6 +156,11 @@ Value val_of_num(uint64_t n)
     return v;
 }
 
+Value val_of_bool(bool b)
+{
+    return val_of_num(b ? UINT64_MAX : 0);
+}
+
 Value expect_bytes(Value v)
 {
     if (v.type != BYTES)
