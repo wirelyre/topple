@@ -210,6 +210,49 @@ static void bytes_set_(Stack *s)
 }
 
 
+static void file_read_(Stack *s)
+{
+    Value b = expect_bytes(stack_pop(s));
+    char *filename = malloc(b.bytes->len + 1);
+    memcpy(filename, b.bytes->contents, b.bytes->len);
+    filename[b.bytes->len] = '\0';
+
+    FILE *f = fopen(filename, "rb");
+    free(filename);
+    discard(b);
+
+    if (f == NULL) {
+        stack_push(s, val_of_num(0));
+        return;
+    }
+
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    if (size < 0)
+        fail("io error");
+
+    b.type = BYTES;
+    b.bytes = malloc(sizeof(Bytes));
+    b.bytes->ref_count = 1;
+    b.bytes->len = 0;
+    b.bytes->cap = size;
+    b.bytes->contents = malloc(size);
+
+    unsigned char *buf = b.bytes->contents;
+    size_t remaining = size;
+    size_t just_read;
+    while ((just_read = fread(buf, 1, remaining, f)) > 0) {
+        buf += just_read;
+        remaining -= just_read;
+    }
+    b.bytes->len = size - remaining;
+
+    stack_push(s, b);
+}
+
+
 static Primitive primitives[] = {
     { .name = "+",    .action = add_   },
     { .name = "-",    .action = sub_   },
@@ -243,6 +286,8 @@ static Primitive primitives[] = {
     { .name = "b%",           .action = bytes_push_   },
     { .name = "b@",           .action = bytes_get_    },
     { .name = "b!",           .action = bytes_set_    },
+
+    { .name = "file.read",    .action = file_read_    },
 
     { .name = NULL },
 };
