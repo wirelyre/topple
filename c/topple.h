@@ -9,6 +9,7 @@
 
 
 typedef struct ASTNode   ASTNode;
+typedef struct Block     Block;
 typedef struct Bytes     Bytes;
 typedef struct Primitive Primitive;
 typedef struct Stack     Stack;
@@ -19,13 +20,14 @@ noreturn void fail(const char *s);
 
 char *read_token(void);
 
-void     dup         (Value);
-void     discard     (Value);
-bool     truthy      (Value);
-uint64_t num_of_val  (Value);
-Value    val_of_num  (uint64_t);
-Value    val_of_bool (bool);
-Value    expect_bytes(Value);
+void     dup           (Value);
+void     discard       (Value);
+bool     truthy        (Value);
+uint64_t num_of_val    (Value);
+Value    val_of_num    (uint64_t);
+Value    val_of_bool   (bool);
+Value    expect_bytes  (Value);
+Value    expect_pointer(Value);
 
 Stack *stack_new (void);
 void   stack_push(Stack *, Value);
@@ -41,6 +43,7 @@ enum type {
     UNDEFINED,
     BYTES,
     NUMBER,
+    POINTER,
 };
 
 struct Value {
@@ -48,6 +51,10 @@ struct Value {
     union {
         Bytes   *bytes;
         uint64_t number;
+        struct {
+            Block   *block;
+            uint16_t cell;
+        } pointer;
     };
 };
 
@@ -59,6 +66,11 @@ struct Stack {
 struct Primitive {
     char const *name;
     void      (*action)(Stack *);
+};
+
+struct Block {
+    size_t ref_count;
+    Value  cells[400];
 };
 
 struct Bytes {

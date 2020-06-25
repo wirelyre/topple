@@ -111,6 +111,10 @@ void dup(Value v)
     case BYTES:
         v.bytes->ref_count++;
         break;
+
+    case POINTER:
+        v.pointer.block->ref_count++;
+        break;
     }
 }
 
@@ -128,6 +132,17 @@ void discard(Value v)
         if (v.bytes->ref_count == 0) {
             free(v.bytes->contents);
             free(v.bytes);
+        }
+
+        break;
+
+    case POINTER:
+        v.pointer.block->ref_count--;
+
+        if (v.pointer.block->ref_count == 0) {
+            for (uint16_t i = 0; i < 400; i++)
+                discard(v.pointer.block->cells[i]);
+            free(v.pointer.block);
         }
 
         break;
@@ -165,6 +180,13 @@ Value expect_bytes(Value v)
 {
     if (v.type != BYTES)
         fail("type error: expected bytes");
+    return v;
+}
+
+Value expect_pointer(Value v)
+{
+    if (v.type != POINTER)
+        fail("type error: expected pointer");
     return v;
 }
 

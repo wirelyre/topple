@@ -253,6 +253,65 @@ static void file_read_(Stack *s)
 }
 
 
+static void block_new_(Stack *s)
+{
+    Block *b = malloc(sizeof(Block));
+    b->ref_count = 1;
+
+    for (uint16_t i = 0; i < 400; i++)
+        b->cells[i].type = UNDEFINED;
+
+    Value v;
+    v.type = POINTER;
+    v.pointer.block = b;
+    v.pointer.cell = 0;
+
+    stack_push(s, v);
+}
+
+
+static void pointer_get_(Stack *s)
+{
+    Value p = expect_pointer(stack_pop(s));
+    Value c = p.pointer.block->cells[p.pointer.cell];
+    dup(c);
+    discard(p);
+
+    if (c.type == UNDEFINED)
+        fail("read from undefined cell");
+
+    stack_push(s, c);
+}
+
+
+static void pointer_set_(Stack *s)
+{
+    Value p = expect_pointer(stack_pop(s));
+    Value v = stack_pop(s);
+
+    Value *cell = &p.pointer.block->cells[p.pointer.cell];
+
+    discard(*cell);
+    *cell = v;
+    discard(p);
+}
+
+
+static void pointer_offset_(Stack *s)
+{
+    uint64_t offset = num_of_val(stack_pop(s));
+    Value p = expect_pointer(stack_pop(s));
+
+    offset += (uint64_t) p.pointer.cell;
+
+    if (offset >= 400)
+        fail("pointer offset out of bounds");
+
+    p.pointer.cell = offset;
+    stack_push(s, p);
+}
+
+
 static Primitive primitives[] = {
     { .name = "+",    .action = add_   },
     { .name = "-",    .action = sub_   },
@@ -280,14 +339,19 @@ static Primitive primitives[] = {
 
     { .name = ".",    .action = dot_   },
 
-    { .name = "bytes.new",    .action = bytes_new_    },
-    { .name = "bytes.clear",  .action = bytes_clear_  },
-    { .name = "bytes.length", .action = bytes_length_ },
-    { .name = "b%",           .action = bytes_push_   },
-    { .name = "b@",           .action = bytes_get_    },
-    { .name = "b!",           .action = bytes_set_    },
+    { .name = "bytes.new",    .action = bytes_new_      },
+    { .name = "bytes.clear",  .action = bytes_clear_    },
+    { .name = "bytes.length", .action = bytes_length_   },
+    { .name = "b%",           .action = bytes_push_     },
+    { .name = "b@",           .action = bytes_get_      },
+    { .name = "b!",           .action = bytes_set_      },
 
-    { .name = "file.read",    .action = file_read_    },
+    { .name = "file.read",    .action = file_read_      },
+
+    { .name = "block.new",    .action = block_new_      },
+    { .name = "@",            .action = pointer_get_    },
+    { .name = "!",            .action = pointer_set_    },
+    { .name = "+p",           .action = pointer_offset_ },
 
     { .name = NULL },
 };
