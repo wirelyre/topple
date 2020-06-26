@@ -18,6 +18,8 @@ enum keyword {
     KW_BEGIN,
     KW_WHILE,
     KW_REPEAT,
+    KW_CONSTANT,
+    KW_VARIABLE,
     KW_TYPE,
 };
 static enum keyword classify_token(char *);
@@ -35,7 +37,9 @@ static ASTNode *parse_cond(const Dict *);
 static ASTNode *parse_loop(const Dict *);
 static ASTNode *parse_non_keyword(const Dict *, char *);
 
-static void make_type(Dict **, char *, uint16_t *);
+static ASTNode *make_constant (Dict **, char *);
+static void     make_variable (Dict **, char *);
+static void     make_type     (Dict **, char *, uint16_t *);
 
 
 ASTNode *parse_program()
@@ -57,6 +61,15 @@ ASTNode *parse_program()
         case KW_COLON:
             d = dict_append(d, read_token());
             d->node->word.body = parse_def(d);
+            break;
+
+        case KW_CONSTANT:
+            n = make_constant(&d, read_token());
+            main = sequence_append(main, n);
+            break;
+
+        case KW_VARIABLE:
+            make_variable(&d, read_token());
             break;
 
         case KW_TYPE:
@@ -247,6 +260,45 @@ static ASTNode *parse_non_keyword(const Dict *d, char *token)
 }
 
 
+static ASTNode *make_constant(Dict **d, char *name)
+{
+    Value *place = malloc(sizeof(Value));
+    ASTNode *n;
+
+    n = malloc(sizeof(ASTNode));
+    n->kind = VAR_GET;
+    n->variable = place;
+
+    *d = dict_append(*d, name);
+    (*d)->node->word.body = n;
+
+    n = malloc(sizeof(ASTNode));
+    n->kind = VAR_SET;
+    n->variable = place;
+    return n;
+}
+
+
+static void make_variable(Dict **d, char *name)
+{
+    char *getter = str_concat(name, "@");
+    char *setter = str_concat(name, "!");
+    free(name);
+
+    Value *var = malloc(sizeof(Value));
+
+    *d = dict_append(*d, getter);
+    (*d)->node->word.body = malloc(sizeof(ASTNode));
+    (*d)->node->word.body->kind = VAR_GET;
+    (*d)->node->word.body->variable = var;
+
+    *d = dict_append(*d, setter);
+    (*d)->node->word.body = malloc(sizeof(ASTNode));
+    (*d)->node->word.body->kind = VAR_SET;
+    (*d)->node->word.body->variable = var;
+}
+
+
 static void make_type(Dict **d, char *name, uint16_t *id)
 {
     if (*id == 0)
@@ -273,15 +325,17 @@ static void make_type(Dict **d, char *name, uint16_t *id)
 static enum keyword classify_token(char *token)
 {
     enum keyword k = NOT_KEYWORD;
-    if (strcmp(token, ":"     ) == 0) k = KW_COLON;
-    if (strcmp(token, ";"     ) == 0) k = KW_SEMICOLON;
-    if (strcmp(token, "if"    ) == 0) k = KW_IF;
-    if (strcmp(token, "else"  ) == 0) k = KW_ELSE;
-    if (strcmp(token, "then"  ) == 0) k = KW_THEN;
-    if (strcmp(token, "begin" ) == 0) k = KW_BEGIN;
-    if (strcmp(token, "while" ) == 0) k = KW_WHILE;
-    if (strcmp(token, "repeat") == 0) k = KW_REPEAT;
-    if (strcmp(token, "type"  ) == 0) k = KW_TYPE;
+    if (strcmp(token, ":"       ) == 0) k = KW_COLON;
+    if (strcmp(token, ";"       ) == 0) k = KW_SEMICOLON;
+    if (strcmp(token, "if"      ) == 0) k = KW_IF;
+    if (strcmp(token, "else"    ) == 0) k = KW_ELSE;
+    if (strcmp(token, "then"    ) == 0) k = KW_THEN;
+    if (strcmp(token, "begin"   ) == 0) k = KW_BEGIN;
+    if (strcmp(token, "while"   ) == 0) k = KW_WHILE;
+    if (strcmp(token, "repeat"  ) == 0) k = KW_REPEAT;
+    if (strcmp(token, "constant") == 0) k = KW_CONSTANT;
+    if (strcmp(token, "variable") == 0) k = KW_VARIABLE;
+    if (strcmp(token, "type"    ) == 0) k = KW_TYPE;
 
     if (k != NOT_KEYWORD)
         free(token);

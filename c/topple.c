@@ -41,6 +41,14 @@ void run_ast(const ASTNode *n, Stack *s)
         printf("%s", n->string);
         break;
 
+    case VAR_GET:
+        stack_push(s, var_get(n->variable));
+        break;
+
+    case VAR_SET:
+        var_set(n->variable, stack_pop(s));
+        break;
+
     case TYPE_CLOSE:
         stack_push(s, type_close(n->type, stack_pop(s)));
         break;

@@ -273,14 +273,8 @@ static void block_new_(Stack *s)
 static void pointer_get_(Stack *s)
 {
     Value p = expect_pointer(stack_pop(s));
-    Value c = p.pointer.block->cells[p.pointer.cell];
-    dup(c);
+    stack_push(s, var_get(&p.pointer.block->cells[p.pointer.cell]));
     discard(p);
-
-    if (c.type == UNDEFINED)
-        fail("read from undefined cell");
-
-    stack_push(s, c);
 }
 
 
@@ -288,11 +282,7 @@ static void pointer_set_(Stack *s)
 {
     Value p = expect_pointer(stack_pop(s));
     Value v = stack_pop(s);
-
-    Value *cell = &p.pointer.block->cells[p.pointer.cell];
-
-    discard(*cell);
-    *cell = v;
+    var_set(&p.pointer.block->cells[p.pointer.cell], v);
     discard(p);
 }
 

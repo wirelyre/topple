@@ -212,6 +212,21 @@ Value expect_pointer(Value v)
 }
 
 
+Value var_get(Value *var)
+{
+    if (var->type == UNDEFINED)
+        fail("read of undefined value");
+    dup(*var);
+    return *var;
+}
+
+void var_set(Value *var, Value v)
+{
+    discard(*var);
+    *var = v;
+}
+
+
 Value type_close(Type t, Value v)
 {
     if (v.type != POINTER)
@@ -304,6 +319,14 @@ static void dump_ast_(ASTNode *n, size_t depth)
 
     case STRING:
         print_spaces(depth); printf("STRING: %s\n", n->string);
+        break;
+
+    case VAR_GET:
+        print_spaces(depth); printf("VAR_GET: %p\n", n->variable);
+        break;
+
+    case VAR_SET:
+        print_spaces(depth); printf("VAR_SET: %p\n", n->variable);
         break;
 
     case TYPE_OPEN:

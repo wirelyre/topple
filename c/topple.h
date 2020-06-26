@@ -30,6 +30,8 @@ Value    val_of_num    (uint64_t);
 Value    val_of_bool   (bool);
 Value    expect_bytes  (Value);
 Value    expect_pointer(Value);
+Value    var_get       (Value *);
+void     var_set       (Value *, Value);
 Value    type_close    (Type, Value);
 Value    type_open     (Type, Value);
 
@@ -97,6 +99,8 @@ struct ASTNode {
         PRIMITIVE,
         SEQUENCE,
         STRING,
+        VAR_GET,
+        VAR_SET,
         TYPE_CLOSE,
         TYPE_OPEN,
         WORD,
@@ -106,6 +110,7 @@ struct ASTNode {
         uint64_t    number;
         Primitive  *primitive;
         const char *string;
+        Value      *variable;
         Type        type;
 
 
