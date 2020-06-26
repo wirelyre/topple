@@ -18,6 +18,7 @@ enum keyword {
     KW_BEGIN,
     KW_WHILE,
     KW_REPEAT,
+    KW_TYPE,
 };
 static enum keyword classify_token(char *);
 
@@ -34,12 +35,15 @@ static ASTNode *parse_cond(const Dict *);
 static ASTNode *parse_loop(const Dict *);
 static ASTNode *parse_non_keyword(const Dict *, char *);
 
+static void make_type(Dict **, char *, uint16_t *);
+
 
 ASTNode *parse_program()
 {
     ASTNode *main = sequence_new();
     ASTNode *n;
     Dict *d = NULL;
+    uint16_t type = POINTER + 1;
 
     char *token;
     while (token = read_token(), token != NULL) {
@@ -53,6 +57,10 @@ ASTNode *parse_program()
         case KW_COLON:
             d = dict_append(d, read_token());
             d->node->word.body = parse_def(d);
+            break;
+
+        case KW_TYPE:
+            make_type(&d, read_token(), &type);
             break;
 
         case KW_SEMICOLON:
@@ -239,6 +247,29 @@ static ASTNode *parse_non_keyword(const Dict *d, char *token)
 }
 
 
+static void make_type(Dict **d, char *name, uint16_t *id)
+{
+    if (*id == 0)
+        fail("too many types");
+
+    char *opener = str_concat("<", name);
+    char *closer = str_concat(">", name);
+    Type t = { .id = *id, .name = name };
+
+    *d = dict_append(*d, opener);
+    (*d)->node->word.body = malloc(sizeof(ASTNode));
+    (*d)->node->word.body->kind = TYPE_OPEN;
+    (*d)->node->word.body->type = t;
+
+    *d = dict_append(*d, closer);
+    (*d)->node->word.body = malloc(sizeof(ASTNode));
+    (*d)->node->word.body->kind = TYPE_CLOSE;
+    (*d)->node->word.body->type = t;
+
+    (*id)++;
+}
+
+
 static enum keyword classify_token(char *token)
 {
     enum keyword k = NOT_KEYWORD;
@@ -250,6 +281,7 @@ static enum keyword classify_token(char *token)
     if (strcmp(token, "begin" ) == 0) k = KW_BEGIN;
     if (strcmp(token, "while" ) == 0) k = KW_WHILE;
     if (strcmp(token, "repeat") == 0) k = KW_REPEAT;
+    if (strcmp(token, "type"  ) == 0) k = KW_TYPE;
 
     if (k != NOT_KEYWORD)
         free(token);

@@ -13,12 +13,14 @@ typedef struct Block     Block;
 typedef struct Bytes     Bytes;
 typedef struct Primitive Primitive;
 typedef struct Stack     Stack;
+typedef struct Type      Type;
 typedef struct Value     Value;
 
 
-noreturn void fail(const char *s);
+noreturn void fail(const char *s, ...);
 
 char *read_token(void);
+char *str_concat(char *, char *);
 
 void     dup           (Value);
 void     discard       (Value);
@@ -28,6 +30,8 @@ Value    val_of_num    (uint64_t);
 Value    val_of_bool   (bool);
 Value    expect_bytes  (Value);
 Value    expect_pointer(Value);
+Value    type_close    (Type, Value);
+Value    type_open     (Type, Value);
 
 Stack *stack_new (void);
 void   stack_push(Stack *, Value);
@@ -80,6 +84,11 @@ struct Bytes {
     unsigned char *contents;
 };
 
+struct Type {
+    uint16_t id;
+    char *name;
+};
+
 struct ASTNode {
     enum {
         CONDITIONAL,
@@ -88,6 +97,8 @@ struct ASTNode {
         PRIMITIVE,
         SEQUENCE,
         STRING,
+        TYPE_CLOSE,
+        TYPE_OPEN,
         WORD,
     } kind;
 
@@ -95,6 +106,7 @@ struct ASTNode {
         uint64_t    number;
         Primitive  *primitive;
         const char *string;
+        Type        type;
 
 
         struct {

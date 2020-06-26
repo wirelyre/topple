@@ -41,6 +41,14 @@ void run_ast(const ASTNode *n, Stack *s)
         printf("%s", n->string);
         break;
 
+    case TYPE_CLOSE:
+        stack_push(s, type_close(n->type, stack_pop(s)));
+        break;
+
+    case TYPE_OPEN:
+        stack_push(s, type_open(n->type, stack_pop(s)));
+        break;
+
     case WORD:
         run_ast(n->word.body, s);
         break;

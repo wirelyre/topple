@@ -1,12 +1,33 @@
 #include <inttypes.h>
+#include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 #include "topple.h"
 
 
-noreturn void fail(const char *s)
+noreturn void fail(const char *fmt, ...)
 {
-    fprintf(stderr, "%s\n", s);
+    va_list ap;
+    va_start(ap, fmt);
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+
+    fprintf(stderr, "\n");
     exit(127);
+}
+
+
+char *str_concat(char *a, char *b)
+{
+    size_t len_a = strlen(a);
+    size_t len_b = strlen(b);
+    char *c = malloc(len_a + len_b + 1);
+
+    memcpy(c, a, len_a);
+    memcpy(c + len_a, b, len_b);
+
+    c[len_a + len_b] = '\0';
+    return c;
 }
 
 
@@ -191,6 +212,23 @@ Value expect_pointer(Value v)
 }
 
 
+Value type_close(Type t, Value v)
+{
+    if (v.type != POINTER)
+        fail("type error: expected pointer");
+    v.type = t.id;
+    return v;
+}
+
+Value type_open(Type t, Value v)
+{
+    if (v.type != t.id)
+        fail("type error: expected '%s'", t.name);
+    v.type = POINTER;
+    return v;
+}
+
+
 Stack *stack_new()
 {
     Stack *s = malloc(sizeof(Stack));
@@ -266,6 +304,14 @@ static void dump_ast_(ASTNode *n, size_t depth)
 
     case STRING:
         print_spaces(depth); printf("STRING: %s\n", n->string);
+        break;
+
+    case TYPE_OPEN:
+        print_spaces(depth); printf("TYPE_OPEN: %s\n", n->type.name);
+        break;
+
+    case TYPE_CLOSE:
+        print_spaces(depth); printf("TYPE_CLOSE: %s\n", n->type.name);
         break;
 
     case WORD:
