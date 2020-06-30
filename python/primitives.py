@@ -69,6 +69,47 @@ def dot(s):
     print(n, end=" ", file=stderr)
 
 
+def bytes_new(s):
+    s.append([bytearray()])
+
+
+def bytes_clear(s):
+    [b] = s.pop([bytearray])
+    b.clear()
+
+
+def bytes_length(s):
+    [b] = s.pop([bytearray])
+    l = len(b) & 0xFFFF_FFFF_FFFF_FFFF
+    s.append([l])
+
+
+def bytes_push(s):
+    [c, b] = s.pop([int, bytearray])
+    b.append(c & 0xFF)
+
+
+def bytes_get(s):
+    [idx, b] = s.pop([int, bytearray])
+    c = b[idx]
+    s.append([c])
+
+
+def bytes_set(s):
+    [c, idx, b] = s.pop([int, int, bytearray])
+    b[idx] = c
+
+
+def file_read(s):
+    [filename] = s.pop([bytearray])
+    try:
+        with open(bytes(filename), "rb") as file:
+            contents = file.read()
+            s.append([bytearray(contents)])
+    except IOError:
+        s.append([0])
+
+
 primitives = {
     "+": ArithPrim(None, add),
     "-": ArithPrim(None, sub),
@@ -92,4 +133,11 @@ primitives = {
     "-rot": Primitive(None, unrot),
     "pick": Primitive(None, pick),
     ".": Primitive(None, dot),
+    "bytes.new": Primitive(None, bytes_new),
+    "bytes.clear": Primitive(None, bytes_clear),
+    "bytes.length": Primitive(None, bytes_length),
+    "b%": Primitive(None, bytes_push),
+    "b@": Primitive(None, bytes_get),
+    "b!": Primitive(None, bytes_set),
+    "file.read": Primitive(None, file_read),
 }
