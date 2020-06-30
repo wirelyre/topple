@@ -42,6 +42,35 @@ class Stack(list):
         return v != 0
 
 
+class Pointer:
+    block: list
+    idx: int
+
+    def __init__(self):
+        self.block = [None] * 400
+        self.idx = 0
+
+    def with_offset(self, offset):
+        idx = (self.idx + offset) & 0xFFFF_FFFF_FFFF_FFFF
+
+        if idx >= 400:
+            raise Exception("TODO")
+
+        p = Pointer()
+        p.block = self.block
+        p.idx = idx
+        return p
+
+    def get(self):
+        v = self.block[self.idx]
+        if v is None:
+            raise Exception("TODO")
+        return v
+
+    def set(self, v):
+        self.block[self.idx] = v
+
+
 @dataclass
 class Node:
     token: Optional[Token]

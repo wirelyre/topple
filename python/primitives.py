@@ -1,7 +1,7 @@
 from sys import stderr
 from typing import Any
 
-from runtime import ArithPrim, Primitive
+from runtime import ArithPrim, Pointer, Primitive
 
 
 add = lambda l, r: l + r
@@ -110,6 +110,25 @@ def file_read(s):
         s.append([0])
 
 
+def block_new(s):
+    s.append([Pointer()])
+
+
+def pointer_get(s):
+    [p] = s.pop([Pointer])
+    s.append([p.get()])
+
+
+def pointer_set(s):
+    [v, p] = s.pop([Any, Pointer])
+    p.set(v)
+
+
+def pointer_offset(s):
+    [p, offset] = s.pop([Pointer, int])
+    s.append([p.with_offset(offset)])
+
+
 primitives = {
     "+": ArithPrim(None, add),
     "-": ArithPrim(None, sub),
@@ -140,4 +159,8 @@ primitives = {
     "b@": Primitive(None, bytes_get),
     "b!": Primitive(None, bytes_set),
     "file.read": Primitive(None, file_read),
+    "block.new": Primitive(None, block_new),
+    "@": Primitive(None, pointer_get),
+    "!": Primitive(None, pointer_set),
+    "+p": Primitive(None, pointer_offset),
 }
