@@ -153,6 +153,13 @@ static void putc_(Stack *s)
 }
 
 
+static void fail_(Stack *s)
+{
+    uint64_t n = num_of_val(stack_pop(s));
+    exit(n);
+}
+
+
 static void bytes_new_(Stack *s)
 {
     Bytes *b = malloc(sizeof(Bytes));
@@ -341,6 +348,7 @@ static Primitive primitives[] = {
 
     { .name = ".",    .action = dot_   },
     { .name = "putc", .action = putc_  },
+    { .name = "fail", .action = fail_  },
 
     { .name = "bytes.new",    .action = bytes_new_      },
     { .name = "bytes.clear",  .action = bytes_clear_    },
