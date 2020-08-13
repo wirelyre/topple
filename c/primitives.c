@@ -141,6 +141,18 @@ static void dot_(Stack *s)
 }
 
 
+static void putc_(Stack *s)
+{
+    uint64_t c = num_of_val(stack_pop(s));
+
+    if (c < ' ' || c > '~')
+        if (c != '\n')
+            fail("illegal character");
+
+    printf("%c", (int) c);
+}
+
+
 static void bytes_new_(Stack *s)
 {
     Bytes *b = malloc(sizeof(Bytes));
@@ -328,6 +340,7 @@ static Primitive primitives[] = {
     { .name = "pick", .action = pick_  },
 
     { .name = ".",    .action = dot_   },
+    { .name = "putc", .action = putc_  },
 
     { .name = "bytes.new",    .action = bytes_new_      },
     { .name = "bytes.clear",  .action = bytes_clear_    },
