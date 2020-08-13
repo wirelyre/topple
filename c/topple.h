@@ -94,6 +94,7 @@ struct Type {
 struct ASTNode {
     enum {
         CONDITIONAL,
+        EXIT,
         LOOP,
         LITERAL,
         PRIMITIVE,

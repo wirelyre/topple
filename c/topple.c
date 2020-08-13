@@ -4,16 +4,27 @@
 #include "topple.h"
 
 
-void run_ast(const ASTNode *n, Stack *s)
+enum early_exit {
+    EXITING,
+    NORMAL_CONTROL,
+};
+
+#define DO(NODE) { if (run_ast(NODE, s) == EXITING) return EXITING; }
+
+
+enum early_exit run_ast(const ASTNode *n, Stack *s)
 {
     switch (n->kind) {
 
     case CONDITIONAL:
         if (truthy(stack_pop(s)))
-            run_ast(n->conditional.if_true, s);
+            DO(n->conditional.if_true)
         else
-            run_ast(n->conditional.if_false, s);
+            DO(n->conditional.if_false)
         break;
+
+    case EXIT:
+        return EXITING;
 
     case LITERAL:
         stack_push(s, val_of_num(n->number));
@@ -21,10 +32,10 @@ void run_ast(const ASTNode *n, Stack *s)
 
     case LOOP:
         while (true) {
-            run_ast(n->loop.test, s);
+            DO(n->loop.test)
             if (!truthy(stack_pop(s)))
                 break;
-            run_ast(n->loop.body, s);
+            DO(n->loop.body)
         }
         break;
 
@@ -34,7 +45,7 @@ void run_ast(const ASTNode *n, Stack *s)
 
     case SEQUENCE:
         for (size_t i = 0; i < n->sequence.len; i++)
-            run_ast(n->sequence.contents[i], s);
+            DO(n->sequence.contents[i])
         break;
 
     case STRING:
@@ -58,10 +69,12 @@ void run_ast(const ASTNode *n, Stack *s)
         break;
 
     case WORD:
-        run_ast(n->word.body, s);
+        run_ast(n->word.body, s); // catch EXITING
         break;
 
     }
+
+    return NORMAL_CONTROL;
 }
 
 
