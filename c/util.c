@@ -169,6 +169,7 @@ void dup(Value v)
         break;
 
     case POINTER:
+    default:
         v.pointer.block->ref_count++;
         break;
     }
@@ -193,6 +194,7 @@ void discard(Value v)
         break;
 
     case POINTER:
+    default:
         v.pointer.block->ref_count--;
 
         if (v.pointer.block->ref_count == 0) {
