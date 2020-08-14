@@ -5,6 +5,10 @@ from typing import Any, Callable, Optional
 from tokens import Token
 
 
+class EarlyExit(Exception):
+    pass
+
+
 class Stack(list):
     def append(self, vs):
         if len(self) + len(vs) > 10_000:
@@ -115,7 +119,16 @@ class Call(Node):
     word: Definition
 
     def run(self, stack):
-        self.word.run(stack)
+        try:
+            self.word.run(stack)
+        except EarlyExit:
+            pass
+
+
+@dataclass
+class Exit(Node):
+    def run(self, stack):
+        raise EarlyExit
 
 
 @dataclass

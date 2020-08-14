@@ -1,12 +1,22 @@
 from copy import copy
 import re
 
-from runtime import Call, Condition, Definition, Primitive, Literal, Loop, String
+from runtime import Call, Condition, Definition, Exit, Primitive, Literal, Loop, String
 from tokens import tokens
 
 
 def is_kw(tok):
-    return tok.value in {":", ";", "if", "else", "then", "begin", "while", "repeat"}
+    return tok.value in {
+        ":",
+        ";",
+        "exit",
+        "if",
+        "else",
+        "then",
+        "begin",
+        "while",
+        "repeat",
+    }
 
 
 def parse(filename, source, prims, defs):
@@ -49,6 +59,9 @@ def parse_word(tok, prims, defs):
 def parse_word_or_control(tok, it, prims, defs):
     if tok.value[0] == '"':
         return String(tok, tok.value[1:-1])
+
+    if tok.value == "exit":
+        return Exit(tok)
 
     if tok.value == "if":
         return parse_cond(tok, it, prims, defs)
