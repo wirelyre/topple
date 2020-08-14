@@ -30,6 +30,7 @@ Value    val_of_num    (uint64_t);
 Value    val_of_bool   (bool);
 Value    expect_bytes  (Value);
 Value    expect_pointer(Value);
+void     bytes_append  (Bytes *, uint64_t);
 Value    var_get       (Value *);
 void     var_set       (Value *, Value);
 Value    type_close    (Type, Value);
@@ -40,8 +41,9 @@ void   stack_push(Stack *, Value);
 Value  stack_pop (Stack *);
 Value  stack_pick(Stack *, size_t);
 
-ASTNode   *parse_program (void);
+ASTNode   *parse_program (Value *argv);
 Primitive *find_primitive(const char *);
+Value     *prepare_argv  (int, const char **);
 void       dump_ast      (ASTNode *);
 
 
@@ -94,6 +96,7 @@ struct Type {
 struct ASTNode {
     enum {
         CONDITIONAL,
+        EXIT,
         LOOP,
         LITERAL,
         PRIMITIVE,

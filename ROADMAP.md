@@ -1,16 +1,8 @@
 Roadmap
 =======
 
-* C
-    - putc
-    - exit
-    - fail
-    - NOT defer
-    - argv
-    - MAYBE argc
-
 * Python
-    - putc/fail/argv as above
+    - putc/fail/argv as with C
     - exit, using exceptions
     - error handling --- creating stack traces
         - big

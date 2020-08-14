@@ -12,6 +12,7 @@ enum keyword {
     NOT_KEYWORD,
     KW_COLON,
     KW_SEMICOLON,
+    KW_EXIT,
     KW_IF,
     KW_ELSE,
     KW_THEN,
@@ -31,6 +32,7 @@ static void     dict_free  (      Dict *);
 
 static ASTNode *sequence_new   (void);
 static ASTNode *sequence_append(ASTNode *, ASTNode *);
+static ASTNode *make_exit      (void);
 
 static ASTNode *parse_def (const Dict *);
 static ASTNode *parse_cond(const Dict *);
@@ -42,12 +44,17 @@ static void     make_variable (Dict **, char *);
 static void     make_type     (Dict **, char *, uint16_t *);
 
 
-ASTNode *parse_program()
+ASTNode *parse_program(Value *argv)
 {
     ASTNode *main = sequence_new();
     ASTNode *n;
     Dict *d = NULL;
     uint16_t type = POINTER + 1;
+
+    d = dict_append(d, "argv");
+    d->node->word.body = malloc(sizeof(ASTNode));
+    d->node->word.body->kind = VAR_GET;
+    d->node->word.body->variable = argv;
 
     char *token;
     while (token = read_token(), token != NULL) {
@@ -77,6 +84,7 @@ ASTNode *parse_program()
             break;
 
         case KW_SEMICOLON:
+        case KW_EXIT:
         case KW_IF:
         case KW_ELSE:
         case KW_THEN:
@@ -108,6 +116,7 @@ static ASTNode *parse_def(const Dict *d)
             n = parse_non_keyword(d, token);
             break;
 
+        case KW_EXIT:  n = make_exit();   break;
         case KW_IF:    n = parse_cond(d); break;
         case KW_BEGIN: n = parse_loop(d); break;
 
@@ -139,6 +148,7 @@ static ASTNode *parse_cond(const Dict *d)
             n = parse_non_keyword(d, token);
             break;
 
+        case KW_EXIT:  n = make_exit();   break;
         case KW_IF:    n = parse_cond(d); break;
         case KW_BEGIN: n = parse_loop(d); break;
 
@@ -183,6 +193,7 @@ static ASTNode *parse_loop(const Dict *d)
             n = parse_non_keyword(d, token);
             break;
 
+        case KW_EXIT:  n = make_exit();   break;
         case KW_IF:    n = parse_cond(d); break;
         case KW_BEGIN: n = parse_loop(d); break;
 
@@ -260,6 +271,14 @@ static ASTNode *parse_non_keyword(const Dict *d, char *token)
 }
 
 
+static ASTNode *make_exit()
+{
+    ASTNode *n = malloc(sizeof(ASTNode));
+    n->kind = EXIT;
+    return n;
+}
+
+
 static ASTNode *make_constant(Dict **d, char *name)
 {
     Value *place = malloc(sizeof(Value));
@@ -327,6 +346,7 @@ static enum keyword classify_token(char *token)
     enum keyword k = NOT_KEYWORD;
     if (strcmp(token, ":"       ) == 0) k = KW_COLON;
     if (strcmp(token, ";"       ) == 0) k = KW_SEMICOLON;
+    if (strcmp(token, "exit"    ) == 0) k = KW_EXIT;
     if (strcmp(token, "if"      ) == 0) k = KW_IF;
     if (strcmp(token, "else"    ) == 0) k = KW_ELSE;
     if (strcmp(token, "then"    ) == 0) k = KW_THEN;
