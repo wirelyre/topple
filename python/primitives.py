@@ -1,4 +1,4 @@
-from sys import stderr
+from sys import exit, stderr
 from typing import Any
 
 from runtime import ArithPrim, Pointer, Primitive
@@ -76,6 +76,11 @@ def putc(s):
         print(c, end="", file=stderr)
     else:
         raise Exception("TODO")
+
+
+def fail(s):
+    [n] = s.pop([int])
+    exit(n)
 
 
 def bytes_new(s):
@@ -162,6 +167,7 @@ primitives = {
     "pick": Primitive(None, pick),
     ".": Primitive(None, dot),
     "putc": Primitive(None, putc),
+    "fail": Primitive(None, fail),
     "bytes.new": Primitive(None, bytes_new),
     "bytes.clear": Primitive(None, bytes_clear),
     "bytes.length": Primitive(None, bytes_length),
