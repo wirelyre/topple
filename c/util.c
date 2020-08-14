@@ -332,6 +332,10 @@ static void dump_ast_(ASTNode *n, size_t depth)
         dump_ast_(n->conditional.if_false, depth + 1);
         break;
 
+    case EXIT:
+        print_spaces(depth); printf("EXIT\n");
+        break;
+
     case LOOP:
         print_spaces(depth); printf("LOOP:\n");
         print_spaces(depth); printf("  test:\n");
