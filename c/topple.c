@@ -79,9 +79,10 @@ enum early_exit run_ast(const ASTNode *n, Stack *s)
 
 
 
-int main(void)
+int main(int argc, const char **argv)
 {
-    ASTNode *main = parse_program();
+    Value *val_argv = prepare_argv(argc, argv);
+    ASTNode *main = parse_program(val_argv);
     Stack *s = stack_new();
     run_ast(main, s);
 

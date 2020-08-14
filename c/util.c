@@ -31,6 +31,41 @@ char *str_concat(char *a, char *b)
 }
 
 
+void bytes_append(Bytes *b, uint64_t c)
+{
+    if (b->len == b->cap) {
+        b->cap *= 2;
+        b->contents = realloc(b->contents, b->cap);
+    }
+
+    b->contents[b->len] = c % 256;
+    b->len++;
+}
+
+
+Value *prepare_argv(int argc, const char **argv)
+{
+    Bytes *b = malloc(sizeof(Bytes));
+    b->ref_count = 1;
+    b->len = 0;
+    b->cap = 16;
+    b->contents = malloc(16);
+
+    for (int i = 1; i < argc; i++) {
+        for (int j = 0; argv[i][j] != '\0'; j++) {
+            bytes_append(b, argv[i][j]);
+        }
+
+        bytes_append(b, 0);
+    }
+
+    Value *v = malloc(sizeof(Value));
+    v->type = BYTES;
+    v->bytes = b;
+    return v;
+}
+
+
 static int read_char()
 {
     int c = getchar();

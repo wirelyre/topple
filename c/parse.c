@@ -44,12 +44,17 @@ static void     make_variable (Dict **, char *);
 static void     make_type     (Dict **, char *, uint16_t *);
 
 
-ASTNode *parse_program()
+ASTNode *parse_program(Value *argv)
 {
     ASTNode *main = sequence_new();
     ASTNode *n;
     Dict *d = NULL;
     uint16_t type = POINTER + 1;
+
+    d = dict_append(d, "argv");
+    d->node->word.body = malloc(sizeof(ASTNode));
+    d->node->word.body->kind = VAR_GET;
+    d->node->word.body->variable = argv;
 
     char *token;
     while (token = read_token(), token != NULL) {

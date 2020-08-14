@@ -193,13 +193,7 @@ static void bytes_push_(Stack *s)
 {
     Value b = expect_bytes(stack_pop(s));
     uint64_t c = num_of_val(stack_pop(s));
-
-    if (b.bytes->len == b.bytes->cap) {
-        b.bytes->cap *= 2;
-        b.bytes = realloc(b.bytes, b.bytes->cap);
-    }
-
-    b.bytes->contents[b.bytes->len++] = c % 256;
+    bytes_append(b.bytes, c);
     discard(b);
 }
 
