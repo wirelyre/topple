@@ -69,6 +69,15 @@ def dot(s):
     print(n, end=" ", file=stderr)
 
 
+def putc(s):
+    [n] = s.pop([int])
+    c = chr(n)
+    if (c.isascii() and c.isprintable()) or c == " " or c == "\n":
+        print(c, end="", file=stderr)
+    else:
+        raise Exception("TODO")
+
+
 def bytes_new(s):
     s.append([bytearray()])
 
@@ -152,6 +161,7 @@ primitives = {
     "-rot": Primitive(None, unrot),
     "pick": Primitive(None, pick),
     ".": Primitive(None, dot),
+    "putc": Primitive(None, putc),
     "bytes.new": Primitive(None, bytes_new),
     "bytes.clear": Primitive(None, bytes_clear),
     "bytes.length": Primitive(None, bytes_length),
