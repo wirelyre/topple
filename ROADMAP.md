@@ -2,8 +2,6 @@ Roadmap
 =======
 
 * Python
-    - putc/fail/argv as with C
-    - exit, using exceptions
     - error handling --- creating stack traces
         - big
 

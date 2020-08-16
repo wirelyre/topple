@@ -1,4 +1,4 @@
-from sys import stderr
+from sys import exit, stderr
 from typing import Any
 
 from runtime import ArithPrim, Pointer, Primitive
@@ -67,6 +67,20 @@ def pick(s):
 def dot(s):
     [n] = s.pop([int])
     print(n, end=" ", file=stderr)
+
+
+def putc(s):
+    [n] = s.pop([int])
+    c = chr(n)
+    if (c.isascii() and c.isprintable()) or c == " " or c == "\n":
+        print(c, end="", file=stderr)
+    else:
+        raise Exception("TODO")
+
+
+def fail(s):
+    [n] = s.pop([int])
+    exit(n)
 
 
 def bytes_new(s):
@@ -152,6 +166,8 @@ primitives = {
     "-rot": Primitive(None, unrot),
     "pick": Primitive(None, pick),
     ".": Primitive(None, dot),
+    "putc": Primitive(None, putc),
+    "fail": Primitive(None, fail),
     "bytes.new": Primitive(None, bytes_new),
     "bytes.clear": Primitive(None, bytes_clear),
     "bytes.length": Primitive(None, bytes_length),
