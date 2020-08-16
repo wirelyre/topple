@@ -4,6 +4,7 @@ import re
 from runtime import (
     Call,
     Cell,
+    Close,
     Condition,
     Definition,
     Exit,
@@ -11,6 +12,7 @@ from runtime import (
     Primitive,
     Literal,
     Loop,
+    Open,
     Set,
     String,
 )
@@ -30,6 +32,7 @@ def is_kw(tok):
         "repeat",
         "constant",
         "variable",
+        "type",
     }
 
 
@@ -47,6 +50,9 @@ def parse(filename, source, prims, defs):
         elif t.value == "variable":
             parse_var(t, it, prims, defs)
 
+        elif t.value == "type":
+            parse_type(t, it, prims, defs)
+
         elif is_kw(t):
             raise Exception("TODO")
 
@@ -54,6 +60,12 @@ def parse(filename, source, prims, defs):
             main.append(parse_word(t, prims, defs))
 
     return main
+
+
+def insert_def(name, value, prims, defs):
+    if name in prims or name in defs:
+        raise Exception("TODO")
+    defs[name] = value
 
 
 def parse_word(tok, prims, defs):
@@ -97,10 +109,7 @@ def parse_def(_colon_tok, it, prims, defs):
     name = name_tok.value
     contents = []
 
-    if name in prims or name in defs:
-        raise Exception("TODO")
-
-    defs[name] = Definition(name_tok, name, contents)
+    insert_def(name, Definition(name_tok, name, contents), prims, defs)
 
     for t in it:
         if t.value == ";":
@@ -113,11 +122,8 @@ def parse_const(_const_tok, it, prims, defs):
     name_tok = next(it)
     name = name_tok.value
 
-    if name in prims or name in defs:
-        raise Exception("TODO")
-
     cell = Cell()
-    defs[name] = Get(name_tok, cell)
+    insert_def(name, Get(name_tok, cell), prims, defs)
     return Set(name_tok, cell)
 
 
@@ -128,12 +134,20 @@ def parse_var(_var_tok, it, prims, defs):
     getter = name + "@"
     setter = name + "!"
 
-    if getter in prims or getter in defs or setter in prims or setter in defs:
-        raise Exception("TODO")
-
     cell = Cell()
-    defs[getter] = Get(name_tok, cell)
-    defs[setter] = Set(name_tok, cell)
+    insert_def(getter, Get(name_tok, cell), prims, defs)
+    insert_def(setter, Set(name_tok, cell), prims, defs)
+
+
+def parse_type(_type_tok, it, prims, defs):
+    name_tok = next(it)
+    name = name_tok.value
+
+    opener = "<" + name
+    closer = ">" + name
+
+    insert_def(opener, Open(name_tok, name), prims, defs)
+    insert_def(closer, Close(name_tok, name), prims, defs)
 
 
 def parse_cond(if_tok, it, prims, defs):

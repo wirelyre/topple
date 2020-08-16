@@ -1,3 +1,4 @@
+from copy import copy
 from dataclasses import dataclass
 from sys import stderr
 from typing import Any, Callable, Optional
@@ -49,30 +50,56 @@ class Stack(list):
 class Pointer:
     block: list
     idx: int
+    type: Optional[str]
 
     def __init__(self):
         self.block = [None] * 400
         self.idx = 0
+        self.type = None
 
     def with_offset(self, offset):
+        if self.type is not None:
+            raise Exception("TODO")
+
         idx = (self.idx + offset) & 0xFFFF_FFFF_FFFF_FFFF
 
         if idx >= 400:
             raise Exception("TODO")
 
-        p = Pointer()
-        p.block = self.block
+        p = copy(self)
         p.idx = idx
         return p
 
     def get(self):
+        if self.type is not None:
+            raise Exception("TODO")
+
         v = self.block[self.idx]
         if v is None:
             raise Exception("TODO")
         return v
 
     def set(self, v):
+        if self.type is not None:
+            raise Exception("TODO")
+
         self.block[self.idx] = v
+
+    def close(self, type):
+        if self.type is not None:
+            raise Exception("TODO")
+
+        p = copy(self)
+        p.type = type
+        return p
+
+    def open(self, type):
+        if self.type != type:
+            raise Exception("TODO")
+
+        p = copy(self)
+        p.type = None
+        return p
 
 
 @dataclass
@@ -110,6 +137,24 @@ class Set(Node):
     def run(self, stack):
         [v] = stack.pop([Any])
         self.cell.value = v
+
+
+@dataclass
+class Open(Node):
+    type: str
+
+    def run(self, stack):
+        [p] = stack.pop([Pointer])
+        stack.append([p.open(self.type)])
+
+
+@dataclass
+class Close(Node):
+    type: str
+
+    def run(self, stack):
+        [p] = stack.pop([Pointer])
+        stack.append([p.close(self.type)])
 
 
 @dataclass
