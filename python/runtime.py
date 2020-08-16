@@ -76,6 +76,11 @@ class Pointer:
 
 
 @dataclass
+class Cell:
+    value: Any = None
+
+
+@dataclass
 class Node:
     token: Optional[Token]
 
@@ -86,6 +91,25 @@ class Literal(Node):
 
     def run(self, stack):
         stack.append([self.value])
+
+
+@dataclass
+class Get(Node):
+    cell: Cell
+
+    def run(self, stack):
+        if self.cell.value is None:
+            raise Exception("TODO")
+        stack.append([self.cell.value])
+
+
+@dataclass
+class Set(Node):
+    cell: Cell
+
+    def run(self, stack):
+        [v] = stack.pop([Any])
+        self.cell.value = v
 
 
 @dataclass

@@ -1,7 +1,19 @@
 from copy import copy
 import re
 
-from runtime import Call, Condition, Definition, Exit, Primitive, Literal, Loop, String
+from runtime import (
+    Call,
+    Cell,
+    Condition,
+    Definition,
+    Exit,
+    Get,
+    Primitive,
+    Literal,
+    Loop,
+    Set,
+    String,
+)
 from tokens import tokens
 
 
@@ -16,6 +28,8 @@ def is_kw(tok):
         "begin",
         "while",
         "repeat",
+        "constant",
+        "variable",
     }
 
 
@@ -26,6 +40,12 @@ def parse(filename, source, prims, defs):
     for t in it:
         if t.value == ":":
             parse_def(t, it, prims, defs)
+
+        elif t.value == "constant":
+            main.append(parse_const(t, it, prims, defs))
+
+        elif t.value == "variable":
+            parse_var(t, it, prims, defs)
 
         elif is_kw(t):
             raise Exception("TODO")
@@ -87,6 +107,33 @@ def parse_def(_colon_tok, it, prims, defs):
             return
 
         contents.append(parse_word_or_control(t, it, prims, defs))
+
+
+def parse_const(_const_tok, it, prims, defs):
+    name_tok = next(it)
+    name = name_tok.value
+
+    if name in prims or name in defs:
+        raise Exception("TODO")
+
+    cell = Cell()
+    defs[name] = Get(name_tok, cell)
+    return Set(name_tok, cell)
+
+
+def parse_var(_var_tok, it, prims, defs):
+    name_tok = next(it)
+    name = name_tok.value
+
+    getter = name + "@"
+    setter = name + "!"
+
+    if getter in prims or getter in defs or setter in prims or setter in defs:
+        raise Exception("TODO")
+
+    cell = Cell()
+    defs[getter] = Get(name_tok, cell)
+    defs[setter] = Set(name_tok, cell)
 
 
 def parse_cond(if_tok, it, prims, defs):
