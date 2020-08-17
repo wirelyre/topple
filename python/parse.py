@@ -15,8 +15,9 @@ from runtime import (
     Open,
     Set,
     String,
+    Token,
 )
-from tokens import tokens
+from util import ParseException, tokens
 
 
 def is_kw(tok):
@@ -54,7 +55,7 @@ def parse(filename, source, prims, defs):
             parse_type(t, it, prims, defs)
 
         elif is_kw(t):
-            raise Exception("TODO")
+            raise ParseException("unexpected keyword outside definition", t)
 
         else:
             main.append(parse_word(t, prims, defs))
@@ -62,9 +63,16 @@ def parse(filename, source, prims, defs):
     return main
 
 
-def insert_def(name, value, prims, defs):
-    if name in prims or name in defs:
-        raise Exception("TODO")
+def insert_def(tok, value, prims, defs):
+    name = tok.value
+
+    if is_kw(tok):
+        raise ParseException("redefinition of keyword", tok)
+    if name in prims:
+        raise ParseException("redefinition of primitive", tok)
+    if name in defs:
+        raise ParseException("redefinition of word", tok, defs[name].token.location)
+
     defs[name] = value
 
 
@@ -83,9 +91,9 @@ def parse_word(tok, prims, defs):
             return Literal(tok, num)
 
     if is_kw(tok):
-        raise Exception("TODO")
+        raise ParseException("unexpected keyword", tok)
     else:
-        raise Exception("TODO")
+        raise ParseException("undefined word", tok)
 
 
 def parse_word_or_control(tok, it, prims, defs):
@@ -104,12 +112,18 @@ def parse_word_or_control(tok, it, prims, defs):
     return parse_word(tok, prims, defs)
 
 
-def parse_def(_colon_tok, it, prims, defs):
-    name_tok = next(it)
-    name = name_tok.value
+def require_name(it, tok):
+    try:
+        return next(it)
+    except StopIteration:
+        raise ParseException("expected name", tok)
+
+
+def parse_def(colon_tok, it, prims, defs):
+    name = require_name(it, colon_tok)
     contents = []
 
-    insert_def(name, Definition(name_tok, name, contents), prims, defs)
+    insert_def(name, Definition(name, contents), prims, defs)
 
     for t in it:
         if t.value == ";":
@@ -117,37 +131,36 @@ def parse_def(_colon_tok, it, prims, defs):
 
         contents.append(parse_word_or_control(t, it, prims, defs))
 
-
-def parse_const(_const_tok, it, prims, defs):
-    name_tok = next(it)
-    name = name_tok.value
-
-    cell = Cell()
-    insert_def(name, Get(name_tok, cell), prims, defs)
-    return Set(name_tok, cell)
+    raise ParseException("unterminated definition", name)
 
 
-def parse_var(_var_tok, it, prims, defs):
-    name_tok = next(it)
-    name = name_tok.value
-
-    getter = name + "@"
-    setter = name + "!"
+def parse_const(const_tok, it, prims, defs):
+    name = require_name(it, const_tok)
 
     cell = Cell()
-    insert_def(getter, Get(name_tok, cell), prims, defs)
-    insert_def(setter, Set(name_tok, cell), prims, defs)
+    insert_def(name, Get(name, cell), prims, defs)
+    return Set(name, cell)
 
 
-def parse_type(_type_tok, it, prims, defs):
-    name_tok = next(it)
-    name = name_tok.value
+def parse_var(var_tok, it, prims, defs):
+    name = require_name(it, var_tok)
 
-    opener = "<" + name
-    closer = ">" + name
+    getter = Token(value=name.value + "@", location=var_tok.location)
+    setter = Token(value=name.value + "!", location=var_tok.location)
 
-    insert_def(opener, Open(name_tok, name), prims, defs)
-    insert_def(closer, Close(name_tok, name), prims, defs)
+    cell = Cell()
+    insert_def(getter, Get(name, cell), prims, defs)
+    insert_def(setter, Set(name, cell), prims, defs)
+
+
+def parse_type(type_tok, it, prims, defs):
+    name = require_name(it, type_tok)
+
+    opener = Token(value="<" + name.value, location=type_tok.location)
+    closer = Token(value=">" + name.value, location=type_tok.location)
+
+    insert_def(opener, Open(name, name), prims, defs)
+    insert_def(closer, Close(name, name), prims, defs)
 
 
 def parse_cond(if_tok, it, prims, defs):
@@ -168,10 +181,10 @@ def parse_cond(if_tok, it, prims, defs):
 
         if_false.append(parse_word_or_control(t, it, prims, defs))
 
-    raise Exception("TODO")
+    raise ParseException("unterminated conditional", if_tok)
 
 
-def parse_loop(_begin_tok, it, prims, defs):
+def parse_loop(begin_tok, it, prims, defs):
     test = []
     body = []
     while_tok = None
@@ -189,4 +202,4 @@ def parse_loop(_begin_tok, it, prims, defs):
 
         body.append(parse_word_or_control(t, it, prims, defs))
 
-    raise Exception("TODO")
+    raise ParseException("unterminated loop", begin_tok)

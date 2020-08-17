@@ -1,9 +1,49 @@
+from contextlib import contextmanager
 from copy import copy
 from dataclasses import dataclass
 from sys import stderr
 from typing import Any, Callable, Optional
 
-from tokens import Token
+from util import Token, ToppleException, trace
+
+
+def name_type(value_or_type):
+    if value_or_type == Pointer:
+        return "pointer"
+    elif isinstance(value_or_type, str):
+        return f"'{value_or_type}'"
+
+    elif isinstance(value_or_type, Pointer):
+        if value_or_type.type is None:
+            return "pointer"
+        else:
+            return f"'{value_or_type.type}'"
+
+    elif value_or_type == int or isinstance(value_or_type, int):
+        return "integer"
+
+    elif value_or_type == bytearray or isinstance(value_or_type, bytearray):
+        return "bytes"
+
+
+def ensure_type(value, type):
+    if type is Any:
+        return
+
+    elif isinstance(value, Pointer):
+        if isinstance(type, str) and value.type == type:
+            return
+        elif type == Pointer and value.type is None:
+            return
+        else:
+            pass
+
+    elif isinstance(value, type):
+        return
+
+    raise ToppleException(
+        "type mismatch", hint=f"expected {name_type(type)}, found {name_type(value)}"
+    )
 
 
 class EarlyExit(Exception):
@@ -13,38 +53,46 @@ class EarlyExit(Exception):
 class Stack(list):
     def append(self, vs):
         if len(self) + len(vs) > 10_000:
-            raise Exception("TODO")
+            raise ToppleException("stack overflow")
 
         for v in vs:
             if isinstance(v, bool):
                 v = 0xFFFF_FFFF_FFFF_FFFF if v else 0
             super().append(v)
 
+    @contextmanager
     def pop(self, types):
-        if len(types) == 0:
-            return []
+        try:
+            if len(types) == 0:
+                return []
 
-        if len(self) < len(types):
-            raise Exception("TODO")
+            popped = self[-len(types) :]
+            for _ in popped:
+                super().pop()
 
-        popped = self[-len(types) :]
-        for v, ty in zip(popped, types):
-            if ty is not Any and not isinstance(v, ty):
-                raise Exception("TODO")
+            if len(popped) < len(types):
+                word = "value" if len(types) == 1 else "values"
+                raise ToppleException(
+                    "stack underflow", hint=f"expected {len(types)} {word}"
+                )
 
-        for _ in types:
-            super().pop()
+            for v, ty in zip(popped, types):
+                ensure_type(v, ty)
 
-        return popped
+            yield popped
+
+        except ToppleException as e:
+            e.captured_stack = popped
+            raise e
 
     def pick(self, n):
         if len(self) < n + 1:
-            raise Exception("TODO")
+            raise ToppleException("stack underflow")
         return self[-(n + 1)]
 
     def top_truthy(self):
-        [v] = self.pop([Any])
-        return v != 0
+        with self.pop([Any]) as [v]:
+            return v != 0
 
 
 class Pointer:
@@ -57,46 +105,34 @@ class Pointer:
         self.idx = 0
         self.type = None
 
-    def with_offset(self, offset):
-        if self.type is not None:
-            raise Exception("TODO")
+    def __str__(self):
+        return f"{name_type(self)} (offset {self.idx})"
 
+    def with_offset(self, offset):
         idx = (self.idx + offset) & 0xFFFF_FFFF_FFFF_FFFF
 
         if idx >= 400:
-            raise Exception("TODO")
+            raise ToppleException("pointer out of bounds")
 
         p = copy(self)
         p.idx = idx
         return p
 
     def get(self):
-        if self.type is not None:
-            raise Exception("TODO")
-
         v = self.block[self.idx]
         if v is None:
-            raise Exception("TODO")
+            raise ToppleException("uninitialized data")
         return v
 
     def set(self, v):
-        if self.type is not None:
-            raise Exception("TODO")
-
         self.block[self.idx] = v
 
     def close(self, type):
-        if self.type is not None:
-            raise Exception("TODO")
-
         p = copy(self)
         p.type = type
         return p
 
-    def open(self, type):
-        if self.type != type:
-            raise Exception("TODO")
-
+    def open(self):
         p = copy(self)
         p.type = None
         return p
@@ -117,7 +153,8 @@ class Literal(Node):
     value: int
 
     def run(self, stack):
-        stack.append([self.value])
+        with trace(self.token):
+            stack.append([self.value])
 
 
 @dataclass
@@ -125,9 +162,10 @@ class Get(Node):
     cell: Cell
 
     def run(self, stack):
-        if self.cell.value is None:
-            raise Exception("TODO")
-        stack.append([self.cell.value])
+        with trace(self.token):
+            if self.cell.value is None:
+                raise ToppleException("uninitialized data")
+            stack.append([self.cell.value])
 
 
 @dataclass
@@ -135,8 +173,9 @@ class Set(Node):
     cell: Cell
 
     def run(self, stack):
-        [v] = stack.pop([Any])
-        self.cell.value = v
+        with trace(self.token):
+            with stack.pop([Any]) as [v]:
+                self.cell.value = v
 
 
 @dataclass
@@ -144,8 +183,9 @@ class Open(Node):
     type: str
 
     def run(self, stack):
-        [p] = stack.pop([Pointer])
-        stack.append([p.open(self.type)])
+        with trace(self.token):  # TODO
+            with stack.pop([self.type]) as [p]:
+                stack.append([p.open()])
 
 
 @dataclass
@@ -153,8 +193,9 @@ class Close(Node):
     type: str
 
     def run(self, stack):
-        [p] = stack.pop([Pointer])
-        stack.append([p.close(self.type)])
+        with trace(self.token):  # TODO
+            with stack.pop([Pointer]) as [p]:
+                stack.append([p.close(self.type)])
 
 
 @dataclass
@@ -162,7 +203,8 @@ class Primitive(Node):
     action: Callable[[Stack], None]
 
     def run(self, stack):
-        self.action(stack)
+        with trace(self.token):
+            self.action(stack)
 
 
 @dataclass
@@ -175,7 +217,6 @@ class String(Node):
 
 @dataclass
 class Definition(Node):
-    name: str
     contents: list
 
     def run(self, stack):
@@ -188,10 +229,11 @@ class Call(Node):
     word: Definition
 
     def run(self, stack):
-        try:
-            self.word.run(stack)
-        except EarlyExit:
-            pass
+        with trace(self.token):
+            try:
+                self.word.run(stack)
+            except EarlyExit:
+                pass
 
 
 @dataclass
@@ -206,10 +248,11 @@ class Condition(Node):
     if_false: list
 
     def run(self, stack):
-        if stack.top_truthy():
-            to_run = self.if_true
-        else:
-            to_run = self.if_false
+        with trace(self.token):
+            if stack.top_truthy():
+                to_run = self.if_true
+            else:
+                to_run = self.if_false
 
         for node in to_run:
             node.run(stack)
@@ -225,8 +268,9 @@ class Loop(Node):
             for node in self.test:
                 node.run(stack)
 
-            if not stack.top_truthy():
-                break
+            with trace(self.token):
+                if not stack.top_truthy():
+                    break
 
             for node in self.body:
                 node.run(stack)
@@ -237,5 +281,9 @@ class ArithPrim(Node):
     action: Callable[[int, int], int]
 
     def run(self, stack):
-        [l, r] = stack.pop([int, int])
-        stack.append([self.action(l, r) & 0xFFFF_FFFF_FFFF_FFFF])
+        with trace(self.token):
+            with stack.pop([int, int]) as [l, r]:
+                try:
+                    stack.append([self.action(l, r) & 0xFFFF_FFFF_FFFF_FFFF])
+                except ZeroDivisionError:
+                    raise ToppleException("division by zero")

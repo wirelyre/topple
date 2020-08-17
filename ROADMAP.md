@@ -1,10 +1,6 @@
 Roadmap
 =======
 
-* Python
-    - error handling --- creating stack traces
-        - big
-
 * tests
     - test runner (Python module? separate files?)
     - tests for primitives

@@ -2,6 +2,7 @@ from sys import exit, stderr
 from typing import Any
 
 from runtime import ArithPrim, Pointer, Primitive
+from util import ToppleException
 
 
 add = lambda l, r: l + r
@@ -20,67 +21,68 @@ ge = lambda l, r: l >= r
 
 
 def dup(s):
-    [v] = s.pop([Any])
-    s.append([v, v])
+    with s.pop([Any]) as [v]:
+        s.append([v, v])
 
 
 def drop(s):
-    s.pop([Any])
+    with s.pop([Any]):
+        pass
 
 
 def swap(s):
-    [v0, v1] = s.pop([Any, Any])
-    s.append([v1, v0])
+    with s.pop([Any, Any]) as [v0, v1]:
+        s.append([v1, v0])
 
 
 def nip(s):
-    [_, v] = s.pop([Any, Any])
-    s.append([v])
+    with s.pop([Any, Any]) as [_, v]:
+        s.append([v])
 
 
 def tuck(s):
-    [v0, v1] = s.pop([Any, Any])
-    s.append([v1, v0, v1])
+    with s.pop([Any, Any]) as [v0, v1]:
+        s.append([v1, v0, v1])
 
 
 def over(s):
-    [v0, v1] = s.pop([Any, Any])
-    s.append([v0, v1, v0])
+    with s.pop([Any, Any]) as [v0, v1]:
+        s.append([v0, v1, v0])
 
 
 def rot(s):
-    [v0, v1, v2] = s.pop([Any, Any, Any])
-    s.append([v1, v2, v0])
+    with s.pop([Any, Any, Any]) as [v0, v1, v2]:
+        s.append([v1, v2, v0])
 
 
 def unrot(s):
-    [v0, v1, v2] = s.pop([Any, Any, Any])
-    s.append([v2, v0, v1])
+    with s.pop([Any, Any, Any]) as [v0, v1, v2]:
+        s.append([v2, v0, v1])
 
 
 def pick(s):
-    [n] = s.pop([int])
-    v = s.pick(n)
-    s.append([v])
+    with s.pop([int]) as [n]:
+        v = s.pick(n)
+        s.append([v])
 
 
 def dot(s):
-    [n] = s.pop([int])
-    print(n, end=" ", file=stderr)
+    with s.pop([int]) as [n]:
+        print(n, end=" ", file=stderr)
 
 
 def putc(s):
-    [n] = s.pop([int])
-    c = chr(n)
-    if (c.isascii() and c.isprintable()) or c == " " or c == "\n":
-        print(c, end="", file=stderr)
-    else:
-        raise Exception("TODO")
+    with s.pop([int]) as [n]:
+        c = chr(n)
+        if (c.isascii() and c.isprintable()) or c == " " or c == "\n":
+            print(c, end="", file=stderr)
+        else:
+            raise ToppleException("unprintable character")
 
 
 def fail(s):
-    [n] = s.pop([int])
-    exit(n)
+    with s.pop([int]) as [n]:
+        exit(n)
 
 
 def bytes_new(s):
@@ -88,40 +90,40 @@ def bytes_new(s):
 
 
 def bytes_clear(s):
-    [b] = s.pop([bytearray])
-    b.clear()
+    with s.pop([bytearray]) as [b]:
+        b.clear()
 
 
 def bytes_length(s):
-    [b] = s.pop([bytearray])
-    l = len(b) & 0xFFFF_FFFF_FFFF_FFFF
-    s.append([l])
+    with s.pop([bytearray]) as [b]:
+        l = len(b) & 0xFFFF_FFFF_FFFF_FFFF
+        s.append([l])
 
 
 def bytes_push(s):
-    [c, b] = s.pop([int, bytearray])
-    b.append(c & 0xFF)
+    with s.pop([int, bytearray]) as [c, b]:
+        b.append(c & 0xFF)
 
 
 def bytes_get(s):
-    [idx, b] = s.pop([int, bytearray])
-    c = b[idx]
-    s.append([c])
+    with s.pop([int, bytearray]) as [idx, b]:
+        c = b[idx]
+        s.append([c])
 
 
 def bytes_set(s):
-    [c, idx, b] = s.pop([int, int, bytearray])
-    b[idx] = c
+    with s.pop([int, int, bytearray]) as [c, idx, b]:
+        b[idx] = c
 
 
 def file_read(s):
-    [filename] = s.pop([bytearray])
-    try:
-        with open(bytes(filename), "rb") as file:
-            contents = file.read()
-            s.append([bytearray(contents)])
-    except IOError:
-        s.append([0])
+    with s.pop([bytearray]) as [filename]:
+        try:
+            with open(bytes(filename), "rb") as file:
+                contents = file.read()
+                s.append([bytearray(contents)])
+        except IOError:
+            s.append([0])
 
 
 def block_new(s):
@@ -129,18 +131,18 @@ def block_new(s):
 
 
 def pointer_get(s):
-    [p] = s.pop([Pointer])
-    s.append([p.get()])
+    with s.pop([Pointer]) as [p]:
+        s.append([p.get()])
 
 
 def pointer_set(s):
-    [v, p] = s.pop([Any, Pointer])
-    p.set(v)
+    with s.pop([Any, Pointer]) as [v, p]:
+        p.set(v)
 
 
 def pointer_offset(s):
-    [p, offset] = s.pop([Pointer, int])
-    s.append([p.with_offset(offset)])
+    with s.pop([Pointer, int]) as [p, offset]:
+        s.append([p.with_offset(offset)])
 
 
 primitives = {

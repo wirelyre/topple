@@ -1,5 +1,10 @@
+from contextlib import contextmanager
 from dataclasses import dataclass
 import re
+
+
+class ParseException(Exception):
+    pass
 
 
 @dataclass
@@ -21,27 +26,46 @@ class Location:
 
         return Location(file=self.file, row=row, col=col)
 
+    def __str__(self):
+        return f"{self.file}:{self.row}:{self.col}"
+
 
 @dataclass
 class Token:
     value: str
     location: Location
 
+    def __str__(self):
+        return f"{self.value} ({self.location})"
 
+
+LEGAL = re.compile(r"[ \n!-~]*")
 WHITESPACE = re.compile(
-    r""" ^(
+    r""" (
         [ \n] |     # whitespace or
         \\ [^\n]*   # a comment
     )* """,
     re.X,
 )
 STRCHAR = re.compile(r"[^\\]|\\.")
-STRING = re.compile(r'^"([^\\]|\\.)*?"')
-WORD = re.compile("^[!#-\[\]-~]+")
+STRING = re.compile(r'"([^\\]|\\.)*?"')
+WORD = re.compile("[!#-\[\]-~]+")
 
 
 def tokens(filename: str, code: str):
     loc = Location(filename)
+
+    if not LEGAL.fullmatch(code):
+        m = LEGAL.match(code)
+        end = 0
+
+        if m is not None:
+            loc = loc.advanced(m.group(0))
+            end = m.end()
+
+        raise ParseException(
+            "illegal character", Token(value=code[end], location=loc),
+        )
 
     while len(code) > 0:
         ws = WHITESPACE.match(code)
@@ -53,7 +77,7 @@ def tokens(filename: str, code: str):
         w = WORD.match(code)
 
         if s is not None:
-            yield Token(value=unescape(s.group(0)), location=loc)
+            yield Token(value=unescape(s.group(0), loc), location=loc)
             code = code[s.end() :]
             loc = loc.advanced(s.group(0))
 
@@ -63,10 +87,12 @@ def tokens(filename: str, code: str):
             loc = loc.advanced(w.group(0))
 
         elif code != "":
-            raise Exception("TODO")
+            raise ParseException(
+                "unterminated string", Token(value=code[0], location=loc)
+            )
 
 
-def unescape(s):
+def unescape(s, loc):
     def char(s):
         if s == r"\n":
             return "\n"
@@ -76,8 +102,27 @@ def unescape(s):
             return '"'
 
         if s[0] == "\\":
-            raise Exception("TODO")
+            raise ParseException(
+                "illegal escape sequence in string", Token(value=s, location=loc)
+            )
 
         return s
 
     return "".join(char(match.group(0)) for match in STRCHAR.finditer(s))
+
+
+class ToppleException(Exception):
+    def __init__(self, error, hint=None):
+        super().__init__(error)
+        self.backtrace = []
+        self.captured_stack = []
+        self.hint = hint
+
+
+@contextmanager
+def trace(name):
+    try:
+        yield
+    except ToppleException as e:
+        e.backtrace.append(name)
+        raise e
