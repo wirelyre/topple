@@ -217,7 +217,6 @@ class String(Node):
 
 @dataclass
 class Definition(Node):
-    name: str
     contents: list
 
     def run(self, stack):
