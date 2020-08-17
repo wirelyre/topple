@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from dataclasses import dataclass
 import re
 
@@ -21,11 +22,17 @@ class Location:
 
         return Location(file=self.file, row=row, col=col)
 
+    def __str__(self):
+        return f"{self.file}:{self.row}:{self.col}"
+
 
 @dataclass
 class Token:
     value: str
     location: Location
+
+    def __str__(self):
+        return f"{self.value} ({self.location})"
 
 
 WHITESPACE = re.compile(
@@ -81,3 +88,20 @@ def unescape(s):
         return s
 
     return "".join(char(match.group(0)) for match in STRCHAR.finditer(s))
+
+
+class ToppleException(Exception):
+    def __init__(self, error, hint=None):
+        super().__init__(error)
+        self.backtrace = []
+        self.captured_stack = []
+        self.hint = hint
+
+
+@contextmanager
+def trace(name):
+    try:
+        yield
+    except ToppleException as e:
+        e.backtrace.append(name)
+        raise e

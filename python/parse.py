@@ -16,7 +16,7 @@ from runtime import (
     Set,
     String,
 )
-from tokens import tokens
+from util import tokens
 
 
 def is_kw(tok):
