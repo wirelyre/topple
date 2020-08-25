@@ -15,6 +15,10 @@ source = sys.stdin.read()
 defs = {"argv": Get(None, Cell(argv))}
 
 
+def eprint(s=""):
+    print(s, file=sys.stderr)
+
+
 bold = "\033[1m"
 reset = "\033[0m"
 
@@ -27,31 +31,33 @@ try:
         node.run(stack)
 
 except ParseException as e:
-    print(f"{bold}Parse error:{reset} {e.args[0]}")
-    print(f"at {e.args[1]}")
+    eprint(f"{bold}Parse error:{reset} {e.args[0]}")
+    eprint(f"at {e.args[1]}")
     if len(e.args) > 2:
-        print(f"see {e.args[2]}")
+        eprint(f"see {e.args[2]}")
 
 except ToppleException as e:
 
-    print(f"{bold}Error:{reset} {e.args[0]}")
+    eprint()
+
+    eprint(f"{bold}Error:{reset} {e.args[0]}")
     if e.hint:
-        print(e.hint)
-    print()
+        eprint(e.hint)
+    eprint()
 
-    print(f"{bold}Backtrace:{reset}")
+    eprint(f"{bold}Backtrace:{reset}")
     for name in e.backtrace:
-        print(name)
-    print()
+        eprint(name)
+    eprint()
 
-    print(f"{bold}Stack:{reset}")
+    eprint(f"{bold}Stack:{reset}")
     for v in reversed(e.captured_stack):
-        print(v)
+        eprint(v)
 
-    print(f"{bold}------{reset}")
+    eprint(f"{bold}------{reset}")
     for v in reversed(stack[-10:]):
-        print(v)
+        eprint(v)
     if len(stack) > 10:
-        print("...")
+        eprint("...")
 
     sys.exit(127)
