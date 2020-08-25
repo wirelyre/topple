@@ -31,6 +31,10 @@ ARITH(mul_, l * r)
 // ARITH(div_, l / r)   -- need to check that (r != 0)
 ARITH(shl_, l << (r % 64))
 ARITH(shr_, l >> (r % 64))
+// ARITH(nor, _)        -- unary
+ARITH(and,  l & r)
+ARITH(or,   l | r)
+ARITH(xor,  l ^ r)
 
 COMP(eq_, l == r)
 COMP(ne_, l != r)
@@ -46,6 +50,12 @@ static void div_(Stack *s)
     if (r == 0)
         fail("division by zero");
     stack_push(s, val_of_num(l / r));
+}
+
+static void not(Stack *s)
+{
+    uint64_t n = num_of_val(stack_pop(s));
+    stack_push(s, val_of_num(~n));
 }
 
 #undef COMP
@@ -320,8 +330,13 @@ static Primitive primitives[] = {
     { .name = "-",    .action = sub_   },
     { .name = "*",    .action = mul_   },
     { .name = "/",    .action = div_   },
+
     { .name = "<<",   .action = shl_   },
     { .name = ">>",   .action = shr_   },
+    { .name = "not",  .action = not    },
+    { .name = "and",  .action = and    },
+    { .name = "or",   .action = or     },
+    { .name = "xor",  .action = xor    },
 
     { .name = "=",    .action = eq_    },
     { .name = "<>",   .action = ne_    },
