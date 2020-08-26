@@ -1,7 +1,7 @@
 from sys import exit, stderr
 from typing import Any
 
-from runtime import ArithPrim, Pointer, Primitive
+from runtime import ArithPrim, BoolPrim, Pointer, Primitive
 from util import ToppleException
 
 
@@ -165,12 +165,12 @@ primitives = {
     "and": ArithPrim(None, and_),
     "or": ArithPrim(None, or_),
     "xor": ArithPrim(None, xor),
-    "=": ArithPrim(None, eq),
-    "<>": ArithPrim(None, ne),
-    "<": ArithPrim(None, lt),
-    ">": ArithPrim(None, gt),
-    "<=": ArithPrim(None, le),
-    ">=": ArithPrim(None, ge),
+    "=": BoolPrim(None, eq),
+    "<>": BoolPrim(None, ne),
+    "<": BoolPrim(None, lt),
+    ">": BoolPrim(None, gt),
+    "<=": BoolPrim(None, le),
+    ">=": BoolPrim(None, ge),
     "dup": Primitive(None, dup),
     "drop": Primitive(None, drop),
     "swap": Primitive(None, swap),

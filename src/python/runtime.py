@@ -287,3 +287,14 @@ class ArithPrim(Node):
                     stack.append([self.action(l, r) & 0xFFFF_FFFF_FFFF_FFFF])
                 except ZeroDivisionError:
                     raise ToppleException("division by zero")
+
+
+@dataclass
+class BoolPrim(Node):
+    action: Callable[[int, int], int]
+
+    def run(self, stack):
+        with trace(self.token):
+            with stack.pop([int, int]) as [l, r]:
+                n = 0xFFFF_FFFF_FFFF_FFFF if self.action(l, r) else 0
+                stack.append([n])
