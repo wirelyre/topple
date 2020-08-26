@@ -31,7 +31,7 @@ ARITH(mul_, l * r)
 // ARITH(div_, l / r)   -- need to check that (r != 0)
 ARITH(shl_, l << (r % 64))
 ARITH(shr_, l >> (r % 64))
-// ARITH(nor, _)        -- unary
+// ARITH(not, _)        -- unary
 ARITH(and,  l & r)
 ARITH(or,   l | r)
 ARITH(xor,  l ^ r)
