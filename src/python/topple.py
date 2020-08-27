@@ -1,3 +1,4 @@
+from pathlib import Path
 import sys
 
 from parse import parse
@@ -6,12 +7,19 @@ from runtime import ArithPrim, Cell, Get, Primitive, Stack
 from util import ParseException, ToppleException
 
 
+if "--" in sys.argv:
+    idx = sys.argv.index("--")
+    paths = sys.argv[1:idx]
+    args = sys.argv[idx + 1 :]
+else:
+    paths = sys.argv[1:]
+    args = []
+
+
 argv = bytearray()
-for arg in sys.argv[1:]:
+for arg in args:
     argv.extend(bytes(arg, "ascii") + b"\0")
 
-
-source = sys.stdin.read()
 defs = {"argv": Get(None, Cell(argv))}
 
 
@@ -24,11 +32,19 @@ reset = "\033[0m"
 
 
 try:
-    ast = parse("(stdin)", source, primitives, defs)
+    ast = []
+
+    for path in paths:
+        source = Path(path).read_text()
+        parsed = parse(path, source, primitives, defs)
+        ast.extend(parsed)
 
     stack = Stack()
     for node in ast:
         node.run(stack)
+
+except OSError as e:
+    eprint(f"{bold}Error:{reset} could not open '{e.filename}'")
 
 except ParseException as e:
     eprint(f"{bold}Parse error:{reset} {e.args[0]}")

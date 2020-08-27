@@ -22,14 +22,11 @@ def c_interpreter(test):
         return None
 
 
-def python_interpreter(source):
+def python_interpreter(test):
     try:
-        with open(test, "rb") as t:
-            return subprocess.check_output(
-                [sys.executable, "src/python/topple.py"],
-                stdin=t,
-                stderr=subprocess.STDOUT,
-            )
+        return subprocess.check_output(
+            [sys.executable, "src/python/topple.py", test], stderr=subprocess.STDOUT,
+        )
     except:
         return None
 
