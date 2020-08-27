@@ -7,6 +7,10 @@ import sys
 
 tests = sorted(Path("test").glob("*.tpl"))
 
+impl_align = 2 + max(len(impl) for impl in ["C", "Python"])
+test_align = max(len(str(test)) for test in tests)
+format_str = "{:<" + str(impl_align) + "} {:<" + str(test_align) + "} ... "
+
 
 def c_interpreter(test):
     try:
@@ -50,7 +54,7 @@ for test in tests:
         expected = ok.group(1)
 
     def start(lang, test):
-        print("{:<8} {:<15} ... ".format("[" + lang + "]", str(test)), end="")
+        print(format_str.format("[" + lang + "]", str(test)), end="")
 
     def end(lang, test, expected, found):
         global unexpected
