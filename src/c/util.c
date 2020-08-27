@@ -95,6 +95,7 @@ static char *read_string()
             return w;
         case '\\':
             switch (read_char()) {
+            case '"':  w[len++] = '"';  break;
             case '\\': w[len++] = '\\'; break;
             case 'n':  w[len++] = '\n'; break;
             default: fail("unknown escape");

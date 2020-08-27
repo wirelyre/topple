@@ -94,12 +94,12 @@ def tokens(filename: str, code: str):
 
 def unescape(s, loc):
     def char(s):
-        if s == r"\n":
-            return "\n"
-        if s == r"\\":
-            return "\\"
         if s == r"\"":
             return '"'
+        if s == r"\\":
+            return "\\"
+        if s == r"\n":
+            return "\n"
 
         if s[0] == "\\":
             raise ParseException(
