@@ -159,8 +159,8 @@ def parse_type(type_tok, it, prims, defs):
     opener = Token(value="<" + name.value, location=type_tok.location)
     closer = Token(value=">" + name.value, location=type_tok.location)
 
-    insert_def(opener, Open(name, name), prims, defs)
-    insert_def(closer, Close(name, name), prims, defs)
+    insert_def(opener, Open(name, name.value), prims, defs)
+    insert_def(closer, Close(name, name.value), prims, defs)
 
 
 def parse_cond(if_tok, it, prims, defs):
