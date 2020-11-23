@@ -6,6 +6,7 @@
 \    chain.unlink ( *chain -- ptr  )
 \    chain.count  ( *chain? -- length )
 \    chain.empty? ( *chain? -- empty? )
+\    chain.move   ( *to? *from -- )
 \
 \ A chain is a singly-linked list ending in 0.
 \ Every link points directly to the next link.
@@ -27,6 +28,7 @@ type chain
 : chain.link over @ over ! >chain swap ! ;
 : chain.unlink dup @ <chain tuck @ swap ! ;
 : chain.empty? @ null? ;
+: chain.move chain.unlink chain.link ;
 
 : chain.create
   1 + -rot 1 -
