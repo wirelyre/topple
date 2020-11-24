@@ -30,10 +30,14 @@ def ensure_type(value, type):
     if type is Any:
         return
 
-    elif isinstance(value, Pointer):
-        if isinstance(type, str) and value.type == type:
+    elif isinstance(type, str):
+        if isinstance(value, Pointer) and value.type == type:
             return
-        elif type == Pointer and value.type is None:
+        else:
+            pass
+
+    elif type == Pointer:
+        if isinstance(value, Pointer) and value.type is None:
             return
         else:
             pass
