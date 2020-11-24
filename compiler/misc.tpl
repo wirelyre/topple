@@ -6,4 +6,8 @@
 
 : true  -1 ;
 : false  0 ;
+: EOF   -1 ;
+
 : null? if false else true then ;
+
+: @1+! dup @ 1 + swap ! ;
