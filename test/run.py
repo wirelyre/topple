@@ -7,7 +7,15 @@ import sys
 
 tests = sorted(Path("test").glob("*.tpl"))
 
-impl_align = 2 + max(len(impl) for impl in ["C", "Python"])
+impl_align = 2 + max(
+    len(impl)
+    for impl in [
+        "C",
+        "Python",
+        "simple-Py2",
+        "simple-Py3",
+    ]
+)
 test_align = max(len(str(test)) for test in tests)
 format_str = "{:<" + str(impl_align) + "} {:<" + str(test_align) + "} ... "
 
@@ -25,8 +33,33 @@ def c_interpreter(test):
 def python_interpreter(test):
     try:
         return subprocess.check_output(
-            [sys.executable, "src/python/topple.py", test], stderr=subprocess.STDOUT,
+            [sys.executable, "src/python/topple.py", test], stderr=subprocess.STDOUT
         )
+    except:
+        return None
+
+
+def simple_interpreter(test, executable):
+    try:
+        with open(test, "rb") as t:
+            compiled = subprocess.check_output(
+                [executable, "src/simple.py"], stdin=t, stderr=subprocess.STDOUT
+            )
+
+        p = subprocess.Popen(
+            [executable, "-"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+
+        (stdout, _stderr) = p.communicate(compiled)
+
+        if p.wait() == 0:
+            return stdout
+        else:
+            return None
+
     except:
         return None
 
@@ -65,6 +98,10 @@ for test in tests:
     end("C", test, expected, c_interpreter(test))
     start("Python", test)
     end("Python", test, expected, python_interpreter(test))
+    start("simple-Py2", test)
+    end("simple-Py2", test, expected, simple_interpreter(test, "python2"))
+    start("simple-Py3", test)
+    end("simple-Py3", test, expected, simple_interpreter(test, "python3"))
 
 
 if len(unexpected) == 0:
