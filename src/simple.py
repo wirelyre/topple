@@ -2,6 +2,7 @@ import re, sys
 
 
 source = sys.stdin.read()
+compiled = ""
 
 
 WHITESPACE = re.compile(
@@ -41,8 +42,7 @@ def next_token():
         raise Exception("bad input")
 
 
-print(
-    """
+compiled += """
 import sys
 
 
@@ -152,7 +152,6 @@ push_argv = lambda: S.append(argv)
 
 
 """
-)
 
 
 indent = 0
@@ -202,9 +201,11 @@ word_idx = 0
 
 
 def print_indented(s):
+    global compiled
+
     for _ in range(indent):
-        sys.stdout.write("    ")
-    sys.stdout.write(s + "\n")
+        compiled += "    "
+    compiled += s + "\n"
 
 
 while True:
@@ -290,3 +291,6 @@ while True:
     else:
         int(tok)
         print_indented("S.append(num(" + tok + "))")
+
+
+exec(compiled)

@@ -42,24 +42,9 @@ def python_interpreter(test):
 def simple_interpreter(test, executable):
     try:
         with open(test, "rb") as t:
-            compiled = subprocess.check_output(
+            return subprocess.check_output(
                 [executable, "src/simple.py"], stdin=t, stderr=subprocess.STDOUT
             )
-
-        p = subprocess.Popen(
-            [executable, "-"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
-
-        (stdout, _stderr) = p.communicate(compiled)
-
-        if p.wait() == 0:
-            return stdout
-        else:
-            return None
-
     except:
         return None
 
