@@ -10,7 +10,8 @@
 \    span.skip ( span --               )
 \    span.next ( span -- span          )
 \
-\    span.=    ( span1 span2 -- equal? )
+\    span.=      ( span1 span2 -- equal? )
+\    span.empty? ( span        -- empty? )
 
 type span
 
@@ -64,6 +65,8 @@ span._heap span._heap 4 +p 99 3 chain.create
 : span._next   dup span->end @ swap span->bytes @ b@ ;
 : span._length dup span->end @ swap span->start @ - ;
 : span._empty? span._length 0 = ;
+
+: span.empty? <span span._empty? ;
 
 : span.peek
   <span
