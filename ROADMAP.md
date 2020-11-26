@@ -1,6 +1,40 @@
 Roadmap
 =======
 
+* compiler
+    - hash map
+    - stubs for code generation
+    - command-line argument parser
+    - tokenizer
+    - put control words in hash map
+    - plan out parse stack
+    - parser
+    - file.write
+
+* RISC-V (RV64MC) compiler
+
+    - compile simple program by hand
+        - (using C toolchain assembler / linker)
+        - type checking
+        - primitives
+
+    - assembler in Python
+        - DB for ELF header
+        - ORG
+        - arithmetic expression parsing
+        - ADD, ADDI, LUI
+        - JAL, JALR
+        - labels
+        - fixups
+        - other instructions
+
+    - self-compiler:
+        - ELF header
+        - code sections
+        - ELF header finalization
+        - instruction encoders
+        - code generation
+
 * tests
     - tests for control structures
 
