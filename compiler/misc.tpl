@@ -11,3 +11,4 @@
 : null? if false else true then ;
 
 : @1+! dup @ 1 + swap ! ;
+: 2dup over over ;
