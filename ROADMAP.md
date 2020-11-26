@@ -2,8 +2,6 @@ Roadmap
 =======
 
 * tests
-    - test runner (Python module? separate files?)
-    - tests for primitives
     - tests for control structures
 
 * Python: compile to C

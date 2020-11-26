@@ -1,7 +1,7 @@
 from sys import exit, stderr
 from typing import Any
 
-from runtime import ArithPrim, Pointer, Primitive
+from runtime import ArithPrim, BoolPrim, Pointer, Primitive
 from util import ToppleException
 
 
@@ -9,8 +9,12 @@ add = lambda l, r: l + r
 sub = lambda l, r: l - r
 mul = lambda l, r: l * r
 div = lambda l, r: l // r
+
 shl = lambda l, r: l << (r % 64)
 shr = lambda l, r: l >> (r % 64)
+and_ = lambda l, r: l & r
+or_ = lambda l, r: l | r
+xor = lambda l, r: l ^ r
 
 eq = lambda l, r: l == r
 ne = lambda l, r: l != r
@@ -18,6 +22,11 @@ lt = lambda l, r: l < r
 gt = lambda l, r: l > r
 le = lambda l, r: l <= r
 ge = lambda l, r: l >= r
+
+
+def not_(s):
+    with s.pop([int]) as [v]:
+        s.append([~v & 0xFFFF_FFFF_FFFF_FFFF])
 
 
 def dup(s):
@@ -152,12 +161,16 @@ primitives = {
     "/": ArithPrim(None, div),
     "<<": ArithPrim(None, shl),
     ">>": ArithPrim(None, shr),
-    "=": ArithPrim(None, eq),
-    "<>": ArithPrim(None, ne),
-    "<": ArithPrim(None, lt),
-    ">": ArithPrim(None, gt),
-    "<=": ArithPrim(None, le),
-    ">=": ArithPrim(None, ge),
+    "not": Primitive(None, not_),
+    "and": ArithPrim(None, and_),
+    "or": ArithPrim(None, or_),
+    "xor": ArithPrim(None, xor),
+    "=": BoolPrim(None, eq),
+    "<>": BoolPrim(None, ne),
+    "<": BoolPrim(None, lt),
+    ">": BoolPrim(None, gt),
+    "<=": BoolPrim(None, le),
+    ">=": BoolPrim(None, ge),
     "dup": Primitive(None, dup),
     "drop": Primitive(None, drop),
     "swap": Primitive(None, swap),
