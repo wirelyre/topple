@@ -47,6 +47,10 @@ span._heap span._heap 4 +p 99 3 chain.create
   span._heap chain.unlink
 ;
 
+: span._free
+  span._heap swap chain.link
+;
+
 : span.new
   span._alloc
        tuck span->bytes !
@@ -56,12 +60,10 @@ span._heap span._heap 4 +p 99 3 chain.create
   >span
 ;
 
-: span._EOF?          dup span->end @ swap span->bytes @ bytes.length >= ;
-: span._next          dup span->end @ swap span->bytes @ b@ ;
-: span._length        dup span->end @ swap span->start @ - ;
-: span._empty?        span._length 0 = ;
-: span._save-start    dup span->start @ swap ;
-: span._restore-start     span->start !      ;
+: span._EOF?   dup span->end @ swap span->bytes @ bytes.length >= ;
+: span._next   dup span->end @ swap span->bytes @ b@ ;
+: span._length dup span->end @ swap span->start @ - ;
+: span._empty? span._length 0 = ;
 
 : span.peek
   <span
@@ -96,6 +98,15 @@ span._heap span._heap 4 +p 99 3 chain.create
   >span nip
 ;
 
+: span._dup
+  span._alloc
+  over span->bytes @ over span->bytes !
+  over span->start @ over span->start !
+  over span->end   @ over span->end   !
+  over span->hash  @ over span->hash  !
+  nip
+;
+
 : span._front
   dup span._empty? if EOF exit then
   dup span->start @
@@ -106,9 +117,9 @@ span._heap span._heap 4 +p 99 3 chain.create
 
 : span.puts
   <span
-  span._save-start
+  span._dup
   begin span._front dup EOF <> while putc repeat
-  drop span._restore-start
+  drop span._free
 ;
 
 : span.=
@@ -116,18 +127,17 @@ span._heap span._heap 4 +p 99 3 chain.create
   over span._length over span._length <> if drop drop false exit then
   over span->hash @ over span->hash @ <> if drop drop false exit then
 
-  span._save-start rot
-  span._save-start rot
+  over span._dup
+  over span._dup
   begin span._front dup EOF <> while
     rot span._front rot
     <> if
-      rot swap span._restore-start
-      span._restore-start
+      span._free span._free drop drop
       false exit
     then
     swap
   repeat
   drop
-  -rot span._restore-start span._restore-start
+  span._free span._free drop drop
   true
 ;
