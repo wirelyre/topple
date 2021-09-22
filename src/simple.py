@@ -263,6 +263,8 @@ while True:
         print_indented(var_name + " = S.pop()")
         indent -= 1
 
+        word_idx += 1
+
     elif tok == "if":
         print_indented("if S.pop() != 0:")
         indent += 1
