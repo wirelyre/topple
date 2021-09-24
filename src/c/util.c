@@ -31,6 +31,18 @@ char *str_concat(char *a, char *b)
 }
 
 
+bool is_num(const char *str)
+{
+    size_t i;
+
+    for (i = 0; str[i] != '\0'; i++)
+        if (str[i] < '0' || '9' < str[i])
+            return false;
+
+    return true;
+}
+
+
 void bytes_append(Bytes *b, uint64_t c)
 {
     if (b->len == b->cap) {

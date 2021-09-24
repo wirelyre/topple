@@ -21,6 +21,7 @@ noreturn void fail(const char *s, ...);
 
 char *read_token(void);
 char *str_concat(char *, char *);
+bool  is_num(const char *);
 
 void     dup           (Value);
 void     discard       (Value);

@@ -234,6 +234,24 @@ static ASTNode *parse_non_keyword(const Dict *d, char *token)
         return a;
     }
 
+    if (is_num(token)) {
+        size_t i;
+        uint64_t n = 0;
+        uint64_t m;
+
+        for (i = 0; token[i] != '\0'; i++) {
+            m = 10*n + (token[i] - '0');
+            if (m < n)
+                fail("number literal too large");
+            n = m;
+        }
+
+        free(token);
+        a->kind = LITERAL;
+        a->number = n;
+        return a;
+    }
+
     Primitive *p = find_primitive(token);
     if (p) {
         free(token);
@@ -249,25 +267,7 @@ static ASTNode *parse_non_keyword(const Dict *d, char *token)
         return w;
     }
 
-    size_t i;
-    uint64_t n = 0;
-    uint64_t m;
-
-    for (i = 0; token[i] != '\0'; i++) {
-        if (token[i] < '0' || '9' < token[i])
-            fail("unknown word");
-    }
-
-    for (i = 0; token[i] != '\0'; i++) {
-        m = 10*n + (token[i] - '0');
-        if (m < n)
-            fail("number literal too large");
-        n = m;
-    }
-    free(token);
-    a->kind = LITERAL;
-    a->number = n;
-    return a;
+    fail("unknown word");
 }
 
 
@@ -368,6 +368,8 @@ static Dict *dict_append(Dict *d, char *name)
 {
     if (find_primitive(name) || dict_find(d, name))
         fail("duplicate word");
+    if (is_num(name))
+        fail("defining number");
     Dict *new = malloc(sizeof(Dict));
     new->next = d;
 
