@@ -228,20 +228,19 @@ is reached, the body is executed.
 Words can have any name consisting of printable characters without whitespace,
 except they may not contain backslashes `\` or double quotes `"`.
 
-It is illegal to redefine a word, or to define a word with the same name as a
-built-in word or control word.  For example:
+It is illegal to redefine a word or number, or to define a word with the same
+name as a built-in word or control word.  For example:
 
 ```
+: abc ;   \ legal
 : a&@ ;   \ legal
-: 123 ;   \ legal
 
 : abc ;   \ illegal: redefining 'abc'
+: 123 ;   \ illegal: redefining '123'
 : +   ;   \ illegal: redefining '+'
 : if  ;   \ illegal: redefining 'if'
 : :   ;   \ illegal: redefining ':'
 ```
-
-It is legal to define a word whose name is a number, but this is a bad idea.
 
 It is illegal to define a word within the definition of another word.
 
@@ -409,11 +408,6 @@ drop \ stack: (empty)
 1    \ stack: 0 1
 -    \ stack: 2^64-1, or 18446744073709551615
 ```
-
-When a word is encountered, the word is executed if it is defined.  If it isn't
-defined, but its name consists entirely of decimal digits, it is treated as a
-number.  (If the word is later defined, the original use is still treated as a
-number.)
 
 The four arithmetic operations are **`+`**, **`-`**, **`*`**, and **`/`**,
 representing addition, subtraction, multiplication, and (unsigned) division.
@@ -760,6 +754,9 @@ It is illegal to:
   - Execute source code with mismatched control structures (*e.g.* `if begin
     then repeat`).
   - Execute source code with control structures outside of definitions.
+  - Define a number as a word.
+  - Define a word more than once.
+  - Redefine a control word.
 
 - Semantics
   - Run a word before it is defined.
