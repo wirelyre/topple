@@ -11,6 +11,7 @@ WHITESPACE = re.compile(
     )* """,
     re.X,
 )
+NUMBER = re.compile("^[0-9]+$")
 STRING = re.compile(r'^"([^\\]|\\.)*?"')
 WORD = re.compile("^[!#-\[\]-~]+")
 
@@ -215,10 +216,7 @@ while True:
 
     tok = next_token()
 
-    if tok in words:
-        print_indented(words[tok] + "()  # " + tok)
-
-    elif tok == ":":
+    if tok == ":":
         skip_ws()
         word = next_token()
         py_name = "word_" + str(word_idx)
@@ -289,6 +287,11 @@ while True:
     elif tok[0] == '"':
         print_indented("sys.stderr.write(" + tok + ")")
 
-    else:
-        int(tok)
+    elif NUMBER.match(tok):
         print_indented("S.append(num(" + tok + "))")
+
+    elif tok in words:
+        print_indented(words[tok] + "()  # " + tok)
+
+    else:
+        raise Exception("undefined word")
