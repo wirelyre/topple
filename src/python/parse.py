@@ -72,6 +72,8 @@ def insert_def(tok, value, prims, defs):
         raise ParseException("redefinition of primitive", tok)
     if name in defs:
         raise ParseException("redefinition of word", tok, defs[name].token.location)
+    if name.isdecimal():
+        raise ParseException("redefinition of number", tok)
 
     defs[name] = value
 
