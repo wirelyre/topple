@@ -12,3 +12,6 @@
 
 : @1+! dup @ 1 + swap ! ;
 : 2dup over over ;
+
+: =or     rot tuck = -rot = or ;          \ ( a b c -- a=b||a=c )
+: between -rot over <= -rot swap <= and ; \ ( b a c -- a<=b<=c  )
