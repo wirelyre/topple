@@ -284,6 +284,9 @@ while True:
     elif tok == "repeat":
         indent -= 1
 
+    elif tok == "exit":
+        print_indented("return")
+
     elif tok[0] == '"':
         print_indented("sys.stderr.write(" + tok + ")")
 
