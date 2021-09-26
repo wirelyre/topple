@@ -129,21 +129,21 @@ def file_read():
 
 
 def block_new():
-    return {"block": [None] * 400, "index": 0}
+    S.append({"block": [None] * 400, "index": 0})
 
 def pointer_get():
     ptr = S.pop()
-    S.push(ptr.block[ptr.index])
+    S.append(ptr["block"][ptr["index"]])
 
 def pointer_set():
     ptr, val = S.pop(), S.pop()
-    ptr.block[ptr.index] = val
+    ptr["block"][ptr["index"]] = val
 
 def pointer_offset():
     off, ptr = S.pop(), S.pop()
-    idx = num(ptr.index + off)
+    idx = num(ptr["index"] + off)
     assert 0 <= idx < 400
-    return {"block": ptr.block, "index": idx}
+    S.append({"block": ptr["block"], "index": idx})
 
 
 argv = bytearray()
