@@ -147,7 +147,7 @@ def pointer_offset():
 
 
 argv = bytearray()
-for arg in sys.argv:
+for arg in sys.argv[1:]:
     argv.extend(arg.encode("ascii") + b"\\0")
 push_argv = lambda: S.append(argv)
 
