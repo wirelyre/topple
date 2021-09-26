@@ -146,6 +146,17 @@ def pointer_offset():
     S.append({"block": ptr["block"], "index": idx})
 
 
+def user_open(ty):
+    data = S.pop()
+    assert data["type"] == ty
+    S.append(data["pointer"])
+
+def user_close(ty):
+    ptr = S.pop()
+    assert "block" in ptr
+    S.append({"type": ty, "pointer": ptr})
+
+
 argv = bytearray()
 for arg in sys.argv[1:]:
     argv.extend(arg.encode("ascii") + b"\\0")
@@ -261,6 +272,19 @@ while True:
         print_indented(var_name + " = S.pop()")
         indent -= 1
 
+        word_idx += 1
+
+    elif tok == "type":
+        skip_ws()
+        name = next_token()
+
+        opener = "open_" + str(word_idx)
+        closer = "close_" + str(word_idx)
+        words["<" + name] = opener
+        words[">" + name] = closer
+
+        print_indented(opener + " = lambda: user_open(" + repr(name) + ")")
+        print_indented(closer + " = lambda: user_close(" + repr(name) + ")")
         word_idx += 1
 
     elif tok == "if":
