@@ -26,6 +26,7 @@
 : emit.word.;            "end of word\n"                     ;
 : emit.word.word         "    word in word: " . "\n"         ;
 : emit.word.number       "    number in word: " . "\n"       ;
+: emit.word.string       "    string: " span.puts "\n"       ;
 : emit.word.if           "    if\n"                        0 ;
 : emit.word.if-else      "    if-else: " . "\n"            0 ;
 : emit.word.if-else-then "    if-else-then: " . " " . "\n"   ;
@@ -33,3 +34,4 @@
 : emit.word.begin        "    begin\n"                     0 ;
 : emit.word.while        "    while\n"                     0 ;
 : emit.word.repeat       "    repeat: " . " " . "\n"         ;
+: emit.word.exit         "    exit\n"                        ;

@@ -4,6 +4,7 @@
 \
 \    span.new  ( bytes -- span )
 \    span.puts ( span  --      )
+\    span.b%   ( bytes span -- )
 \
 \    span.peek ( span -- next-byte/EOF )
 \    span.bump ( span --               )
@@ -122,6 +123,13 @@ span._heap span._heap 4 +p 99 3 chain.create
   <span
   span._dup
   begin span._front dup EOF <> while putc repeat
+  drop span._free
+;
+
+: span.b%
+  <span
+  span._dup
+  begin span._front dup EOF <> while 2 pick b% repeat
   drop span._free
 ;
 

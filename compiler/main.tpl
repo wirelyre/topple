@@ -5,13 +5,22 @@
 : main
   "Output file: " args.output-file span.puts "\n\n"
 
-  "Input files:\n"
+  bytes.new
 
   begin
     args.next-input-file
   dup while
-    span.puts "\n"
+
+    over dup bytes.clear
+    swap span.b%
+    file.read
+    dup if else "cannot open file\n" 1 fail then
+
+    parse
+
   repeat drop
+
+  drop
 ;
 
 main
