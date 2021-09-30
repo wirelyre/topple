@@ -29,6 +29,7 @@ features are marked with a unicorn: 🦄.
   - 64-bit integers
   - byte arrays
   - pointers
+  - 🦄 indirect calls
   - memory allocation
   - safe memory access (no OOB, no uninitialized reads)
   - user-defined types
