@@ -4,10 +4,11 @@
 \
 \    span.new  ( bytes -- span )
 \    span.puts ( span  --      )
-\    span.b%   ( bytes span -- )
+\    span.b%   ( bytes span -- span )
 \
 \    span.peek ( span -- next-byte/EOF )
 \    span.bump ( span --               )
+\    span.rest ( span --               )
 \    span.skip ( span --               )
 \    span.next ( span -- span          )
 \
@@ -84,6 +85,15 @@ span._heap span._heap 4 +p 99 3 chain.create
   33 * xor
   over span->hash !
   span->end @1+!
+;
+
+: span.rest
+  begin
+    dup <span span._EOF? not
+  while
+    dup span.bump
+  repeat
+  drop
 ;
 
 : span.skip

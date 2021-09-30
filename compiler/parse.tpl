@@ -24,11 +24,15 @@
 : parse._not-in-main "defining words only allowed at top level\n" 1 fail ;
 
 variable parse._tok
+variable parse._type-number
+0 parse._type-number!
 
 : parse._next-name
   parse._tok@ token.next
   token.word <> if "expected name\n" 1 fail then
 ;
+
+
 
 : parse
   span.new parse._tok!
@@ -36,6 +40,7 @@ variable parse._tok
   EOF
 
   begin
+    parse._tok@ span.next parse._tok!
     parse._tok@ token.next
     dup EOF <>
   while
@@ -50,7 +55,11 @@ variable parse._tok
       then
 
     else dup token.word = if drop
-      drop 0 \ TODO (look up address)
+      words hashmap.find
+
+      dup null? if "undefined word\n" 1 fail then
+      cell.get
+
       over EOF = if
         emit.main.word
       else
@@ -66,9 +75,9 @@ variable parse._tok
     else dup token.: = if drop drop
       dup EOF <> if parse._not-in-main then
       parse._next-name
-      drop          \ TODO (name)
+      words.user
       emit.word.:
-      drop          \ TODO (address)
+      swap cell.set
       token.:
 
     else dup token.; = if drop drop
@@ -79,26 +88,25 @@ variable parse._tok
     else dup token.constant = if drop drop
       dup EOF <> if parse._not-in-main then
       parse._next-name
-      drop          \ TODO (name)
+      words.user
       emit.constant
-      drop          \ TODO (address)
+      swap cell.set
 
     else dup token.variable = if drop drop
       dup EOF <> if parse._not-in-main then
       parse._next-name
-      drop          \ TODO (name)
       emit.variable
-      drop          \ TODO ('set' address)
-      drop          \ TODO ('get' address)
+      2 pick words.user.setter cell.set
+      swap   words.user.getter cell.set
 
     else dup token.type = if drop drop
       dup EOF <> if parse._not-in-main then
       parse._next-name
-      drop          \ TODO (name)
-      0             \ TODO (type number)
+      parse._type-number@
+      dup 1 + parse._type-number!
       emit.type
-      drop          \ TODO ('close' address)
-      drop          \ TODO ('open' address)
+      2 pick words.user.closer cell.set
+      swap   words.user.opener cell.set
 
 
 
