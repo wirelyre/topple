@@ -15,3 +15,6 @@
 
 : =or     rot tuck = -rot = or ;          \ ( a b c -- a=b||a=c )
 : between -rot over <= -rot swap <= and ; \ ( b a c -- a<=b<=c  )
+
+: .h   dup 9 > 7 and 48 + + putc ;
+: .x   dup 4 >> .h   15 and .h ;
