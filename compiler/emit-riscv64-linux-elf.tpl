@@ -262,6 +262,15 @@ object._section-words
       93 s.a7 s.LI
       s.ECALL
 
+\ error: division by zero
+    emit._cur-addr constant emit.prims.fail.division-by-zero
+      emit.prims.print-string s.CALL
+      10 111 114 101 122 32 121 98 32 110 111 105 115 105 118 105 100 17
+      emit._string
+      15 s.a0 s.LI
+      93 s.a7 s.LI
+      s.ECALL
+
 \ error: uninitialized data
     emit._cur-addr constant emit.prims.fail.uninitialized-data
       emit.prims.print-string s.CALL
@@ -355,7 +364,51 @@ object._section-words
 \ /
     emit._cur-addr words.builtin./ cell.set
       emit.prims.pop-2-nums s.CALL.t0
+      emit.prims.fail.division-by-zero emit._rel
+        s.a1 0 s.BEQ
       s.a1 s.a0 s.a0 s.DIVU
+      emit.prims.push-num s.CALL.t0
+      0 s.ra 0 s.JALR
+
+\ <<
+    emit._cur-addr words.builtin.<< cell.set
+      emit.prims.pop-2-nums s.CALL.t0
+      s.a1 s.a0 s.a0 s.SLL
+      emit.prims.push-num s.CALL.t0
+      0 s.ra 0 s.JALR
+
+\ >>
+    emit._cur-addr words.builtin.>> cell.set
+      emit.prims.pop-2-nums s.CALL.t0
+      s.a1 s.a0 s.a0 s.SRL
+      emit.prims.push-num s.CALL.t0
+      0 s.ra 0 s.JALR
+
+\ not
+    emit._cur-addr words.builtin.not cell.set
+      emit.prims.pop-num s.CALL.t0
+      0 1 - s.a0 s.a0 s.XORI
+      emit.prims.push-num s.CALL.t0
+      0 s.ra 0 s.JALR
+
+\ and
+    emit._cur-addr words.builtin.and cell.set
+      emit.prims.pop-2-nums s.CALL.t0
+      s.a1 s.a0 s.a0 s.AND
+      emit.prims.push-num s.CALL.t0
+      0 s.ra 0 s.JALR
+
+\ or
+    emit._cur-addr words.builtin.or cell.set
+      emit.prims.pop-2-nums s.CALL.t0
+      s.a1 s.a0 s.a0 s.OR
+      emit.prims.push-num s.CALL.t0
+      0 s.ra 0 s.JALR
+
+\ xor
+    emit._cur-addr words.builtin.xor cell.set
+      emit.prims.pop-2-nums s.CALL.t0
+      s.a1 s.a0 s.a0 s.XOR
       emit.prims.push-num s.CALL.t0
       0 s.ra 0 s.JALR
 
@@ -368,10 +421,44 @@ object._section-words
       emit.prims.push-num s.CALL.t0
       0 s.ra 0 s.JALR
 
+\ <>
+    emit._cur-addr words.builtin.<> cell.set
+      emit.prims.pop-2-nums s.CALL.t0
+      s.a1 s.a0 s.a0 s.SUB
+      s.a0 0 s.a0 s.SLTU
+      s.a0 0 s.a0 s.SUB
+      emit.prims.push-num s.CALL.t0
+      0 s.ra 0 s.JALR
+
+\ <
+    emit._cur-addr words.builtin.< cell.set
+      emit.prims.pop-2-nums s.CALL.t0
+      s.a1 s.a0 s.a0 s.SLTU
+      s.a0 0 s.a0 s.SUB
+      emit.prims.push-num s.CALL.t0
+      0 s.ra 0 s.JALR
+
+\ >
+    emit._cur-addr words.builtin.> cell.set
+      emit.prims.pop-2-nums s.CALL.t0
+      s.a0 s.a1 s.a0 s.SLTU
+      s.a0 0 s.a0 s.SUB
+      emit.prims.push-num s.CALL.t0
+      0 s.ra 0 s.JALR
+
 \ <=
     emit._cur-addr words.builtin.<= cell.set
       emit.prims.pop-2-nums s.CALL.t0
       s.a0 s.a1 s.a0 s.SLTU
+      1 s.a0 s.a0 s.XORI
+      s.a0 0 s.a0 s.SUB
+      emit.prims.push-num s.CALL.t0
+      0 s.ra 0 s.JALR
+
+\ >=
+    emit._cur-addr words.builtin.>= cell.set
+      emit.prims.pop-2-nums s.CALL.t0
+      s.a1 s.a0 s.a0 s.SLTU
       1 s.a0 s.a0 s.XORI
       s.a0 0 s.a0 s.SUB
       emit.prims.push-num s.CALL.t0
