@@ -15,6 +15,9 @@ bytes.new constant object._file
 : emit._cur-addr   emit._cur-offset 262376 + ;
 : emit._rel        emit._cur-addr - ;
 
+variable emit._data-pointer
+268435456 emit._data-pointer!
+
 
 
 \ Assembly routines
@@ -259,6 +262,15 @@ object._section-words
       93 s.a7 s.LI
       s.ECALL
 
+\ error: uninitialized data
+    emit._cur-addr constant emit.prims.fail.uninitialized-data
+      emit.prims.print-string s.CALL
+      10 97 116 97 100 32 100 101 122 105 108 97 105 116 105 110 105 110 117
+        19 emit._string
+      15 s.a0 s.LI
+      93 s.a7 s.LI
+      s.ECALL
+
 \ pop anything
     emit._cur-addr constant emit.prims.pop-any
       32 s.t1 s.LUI
@@ -266,6 +278,7 @@ object._section-words
         s.s0 s.t1 s.BGEU
       0 10 - s.s0 s.s0 s.ADDI
       0 s.s0 s.a0 s.LD
+      8 s.s0 s.a1 s.LD
       0 s.t0 0 s.JALR
 
 \ pop number
@@ -291,13 +304,31 @@ object._section-words
 
 \ push number
     emit._cur-addr constant emit.prims.push-num
+      2 s.a1 s.LI
+      \ fall through
+
+\ push anything
+    emit._cur-addr constant emit.prims.push-any
       231072 s.t1 s.LI
       emit.prims.fail.stack-overflow emit._rel
         s.t1 s.s0 s.BGEU
-      2 s.t1 s.LI
       0 s.a0 s.s0 s.SD
-      8 s.t1 s.s0 s.SH
+      8 s.a1 s.s0 s.SH
       10 s.s0 s.s0 s.ADDI
+      0 s.t0 0 s.JALR
+
+\ get from address
+    emit._cur-addr constant emit.prims.get
+      8 s.a0 s.a1 s.LHU
+      0 s.a0 s.a0 s.LD
+      emit.prims.fail.uninitialized-data emit._rel
+        s.a1 0 s.BEQ
+      0 s.t0 0 s.JALR
+
+\ set at address
+    emit._cur-addr constant emit.prims.set
+      0 s.a0 s.a2 s.SD
+      8 s.a1 s.a2 s.SH
       0 s.t0 0 s.JALR
 
 \ +
@@ -494,7 +525,7 @@ drop
   268435456 b%8 \ p_vaddr
     0 b%8 \ p_paddr
     0 b%8 \ p_filesz
-  4096 b%8 \ p_memsz
+  emit._data-pointer@ 268435456 - b%8 \ p_memsz
     0 b%8 \ p_align
 
   object._section-words bytes.append
@@ -518,9 +549,45 @@ drop
   drop
 ;
 
-: emit.type     TODO ;
-: emit.constant TODO ;
-: emit.variable TODO ;
+: emit.type TODO ;
+
+: emit.constant
+  emit._cur-addr
+  object._section-words
+    emit._data-pointer@ s.a0 s.LI
+    emit.prims.get s.CALL.t0
+    emit.prims.push-any s.CALL.t0
+    0 s.ra 0 s.JALR
+  drop
+
+  object._section-main
+    emit.prims.pop-any s.CALL.t0
+    emit._data-pointer@ s.a2 s.LI
+    emit.prims.set s.CALL.t0
+  drop
+
+  emit._data-pointer@ 10 +
+  emit._data-pointer!
+;
+
+: emit.variable
+  object._section-words
+    emit._cur-addr swap
+    emit._data-pointer@ s.a0 s.LI
+    emit.prims.get s.CALL.t0
+    emit.prims.push-any s.CALL.t0
+    0 s.ra 0 s.JALR
+
+    emit._cur-addr swap
+    emit.prims.pop-any s.CALL.t0
+    emit._data-pointer@ s.a2 s.LI
+    emit.prims.set s.CALL.t0
+    0 s.ra 0 s.JALR
+  drop
+
+  emit._data-pointer@ 10 +
+  emit._data-pointer!
+;
 
 : emit.word.:
   emit._cur-addr
