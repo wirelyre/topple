@@ -281,6 +281,15 @@ object._section-words
       93 s.a7 s.LI
       s.ECALL
 
+\ error: unprintable character
+    emit._cur-addr constant emit.prims.fail.unprintable-character
+      emit.prims.print-string s.CALL
+      10 114 101 116 99 97 114 97 104 99 32 101 108 98 97 116 110 105 114 112
+        110 117 22 emit._string
+      15 s.a0 s.LI
+      93 s.a7 s.LI
+      s.ECALL
+
 \ pop anything
     emit._cur-addr constant emit.prims.pop-any
       32 s.t1 s.LUI
@@ -631,6 +640,31 @@ object._section-words
       64 s.a7 s.LI
       s.ECALL
       0 s.s11 0 s.JALR
+
+\ putc
+    emit._cur-addr words.builtin.putc cell.set
+      0 s.ra s.s11 s.ADDI
+      emit.prims.pop-num s.CALL.t0
+      10 s.t0 s.LI
+      20 s.t0 s.a0 s.BEQ
+      32 s.t0 s.LI
+      emit.prims.fail.unprintable-character emit._rel
+        s.t0 s.a0 s.BLTU
+      127 s.t0 s.LI
+      emit.prims.fail.unprintable-character emit._rel
+        s.t0 s.a0 s.BGEU
+      0 s.a0 s.LI
+      0 s.s0 s.a1 s.ADDI
+      1 s.a2 s.LI
+      64 s.a7 s.LI
+      s.ECALL
+      0 s.s11 0 s.JALR
+
+\ fail
+    emit._cur-addr words.builtin.fail cell.set
+      emit.prims.pop-num s.CALL.t0
+      93 s.a7 s.LI
+      s.ECALL
 
 drop
 
