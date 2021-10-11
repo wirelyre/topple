@@ -35,6 +35,7 @@ variable emit._data-pointer
 : s.s11 27 ;
 : s.t3  28 ;
 : s.t4  29 ;
+: s.t5  30 ;
 
 : emit.imm12?     2048 +    4095 not and 0 =   ;
 : emit.imm20?   524288 + 1048575 not and 0 =   ;
@@ -487,6 +488,54 @@ object._section-words
       0 10 - s.s0 s.s0 s.ADDI
       0 s.ra 0 s.JALR
 
+\ swap
+    emit._cur-addr words.builtin.swap cell.set
+      131092 s.t0 s.LI
+      emit.prims.fail.stack-underflow emit._rel
+        s.t0 s.s0 s.BLT
+      0 20 - s.s0 s.t0 s.LD
+      0 12 - s.s0 s.t1 s.LHU
+      0 10 - s.s0 s.t2 s.LD
+      0  2 - s.s0 s.t3 s.LHU
+      0 20 - s.t2 s.s0 s.SD
+      0 12 - s.t3 s.s0 s.SH
+      0 10 - s.t0 s.s0 s.SD
+      0  2 - s.t1 s.s0 s.SH
+      0 s.ra 0 s.JALR
+
+\ nip
+    emit._cur-addr words.builtin.nip cell.set
+      131092 s.t0 s.LI
+      emit.prims.fail.stack-underflow emit._rel
+        s.t0 s.s0 s.BLT
+      0 10 - s.s0 s.t0 s.LD
+      0  2 - s.s0 s.t1 s.LHU
+      0 20 - s.t0 s.s0 s.SD
+      0 12 - s.t1 s.s0 s.SH
+      0 10 - s.s0 s.s0 s.ADDI
+      0 s.ra 0 s.JALR
+
+\ tuck
+    emit._cur-addr words.builtin.tuck cell.set
+      131092 s.t0 s.LI
+      emit.prims.fail.stack-underflow emit._rel
+        s.t0 s.s0 s.BLT
+      231072 s.t1 s.LI
+      emit.prims.fail.stack-overflow emit._rel
+        s.t1 s.s0 s.BGEU
+      0 20 - s.s0 s.t0 s.LD
+      0 12 - s.s0 s.t1 s.LHU
+      0 10 - s.s0 s.t2 s.LD
+      0  2 - s.s0 s.t3 s.LHU
+      0 20 - s.t2 s.s0 s.SD
+      0 12 - s.t3 s.s0 s.SH
+      0 10 - s.t0 s.s0 s.SD
+      0  2 - s.t1 s.s0 s.SH
+           0 s.t2 s.s0 s.SD
+           8 s.t3 s.s0 s.SH
+      10 s.s0 s.s0 s.ADDI
+      0 s.ra 0 s.JALR
+
 \ over
     emit._cur-addr words.builtin.over cell.set
       131092 s.t0 s.LI
@@ -500,6 +549,60 @@ object._section-words
       0 s.t0 s.s0 s.SD
       8 s.t1 s.s0 s.SH
       10 s.s0 s.s0 s.ADDI
+      0 s.ra 0 s.JALR
+
+\ rot
+    emit._cur-addr words.builtin.rot cell.set
+      131102 s.t0 s.LI
+      emit.prims.fail.stack-underflow emit._rel
+        s.t0 s.s0 s.BLT
+      0 30 - s.s0 s.t0 s.LD
+      0 22 - s.s0 s.t1 s.LHU
+      0 20 - s.s0 s.t2 s.LD
+      0 12 - s.s0 s.t3 s.LHU
+      0 10 - s.s0 s.t4 s.LD
+      0  2 - s.s0 s.t5 s.LHU
+      0 30 - s.t2 s.s0 s.SD
+      0 22 - s.t3 s.s0 s.SH
+      0 20 - s.t4 s.s0 s.SD
+      0 12 - s.t5 s.s0 s.SH
+      0 10 - s.t0 s.s0 s.SD
+      0  2 - s.t1 s.s0 s.SH
+      0 s.ra 0 s.JALR
+
+\ -rot
+    emit._cur-addr words.builtin.-rot cell.set
+      131102 s.t0 s.LI
+      emit.prims.fail.stack-underflow emit._rel
+        s.t0 s.s0 s.BLT
+      0 30 - s.s0 s.t0 s.LD
+      0 22 - s.s0 s.t1 s.LHU
+      0 20 - s.s0 s.t2 s.LD
+      0 12 - s.s0 s.t3 s.LHU
+      0 10 - s.s0 s.t4 s.LD
+      0  2 - s.s0 s.t5 s.LHU
+      0 30 - s.t4 s.s0 s.SD
+      0 22 - s.t5 s.s0 s.SH
+      0 20 - s.t0 s.s0 s.SD
+      0 12 - s.t1 s.s0 s.SH
+      0 10 - s.t2 s.s0 s.SD
+      0  2 - s.t3 s.s0 s.SH
+      0 s.ra 0 s.JALR
+
+\ pick
+    emit._cur-addr words.builtin.pick cell.set
+      emit.prims.pop-num s.CALL.t0
+      32 s.t0 s.LUI
+      s.t0 s.s0 s.t0 s.SUB
+      10 s.t1 s.LI
+      s.t1 s.t0 s.t0 s.DIVU
+      emit.prims.fail.stack-underflow emit._rel
+        s.t0 s.a0 s.BGEU
+      1 s.a0 s.a0 s.ADDI
+      s.t1 s.a0 s.a0 s.MUL
+      s.a0 s.s0 s.a0 s.SUB
+      emit.prims.get s.CALL.t0
+      emit.prims.push-any s.CALL.t0
       0 s.ra 0 s.JALR
 
 \ .
