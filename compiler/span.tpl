@@ -4,7 +4,7 @@
 \
 \    span.new  ( bytes -- span )
 \    span.puts ( span  --      )
-\    span.b%   ( bytes span -- span )
+\    span.b%   ( bytes span -- bytes )
 \
 \    span.peek ( span -- next-byte/EOF )
 \    span.bump ( span --               )
@@ -14,6 +14,8 @@
 \
 \    span.=      ( span1 span2 -- equal? )
 \    span.empty? ( span        -- empty? )
+\
+\    span.unescape ( bytes span -- length )
 
 type span
 
@@ -161,4 +163,34 @@ span._heap span._heap 4 +p 99 3 chain.create
   drop
   span._free span._free drop drop
   true
+;
+
+: span.unescape
+  <span
+  span._dup
+  0 swap
+
+  span._front drop
+
+  begin span._front dup 34 <> while
+
+    dup 32 126 between not if
+      "illegal string character\n"
+      1 fail
+    then
+
+    dup 92 = if drop
+      span._front
+      dup  34 = if 3 pick b% else
+      dup  92 = if 3 pick b% else
+      dup 110 = if drop 10 3 pick b% else
+        "illegal string escape\n"
+        1 fail
+      then then then
+    else 3 pick b% then
+
+    swap 1 + swap
+  repeat drop
+  span._free
+  nip
 ;

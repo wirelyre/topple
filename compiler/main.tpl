@@ -23,4 +23,9 @@
   drop
 ;
 
+object.init
+
 main
+
+object.finalize
+bytes.dump
