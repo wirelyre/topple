@@ -323,6 +323,15 @@ object._section-words
       93 s.a7 s.LI
       s.ECALL
 
+\ error: wrong user type
+    emit._cur-addr constant emit.prims.fail.wrong-user-type
+      emit.prims.print-string s.CALL
+      10 101 112 121 116 32 114 101 115 117 32 103 110 111 114 119 16
+      emit._string
+      15 s.a0 s.LI
+      93 s.a7 s.LI
+      s.ECALL
+
 \ pop anything
     emit._cur-addr constant emit.prims.pop-any
       32 s.t1 s.LUI
@@ -875,7 +884,29 @@ drop
   drop
 ;
 
-: emit.type TODO ;
+: emit.type
+  3 +
+  dup 65535 > if "too many types\n" 15 fail then
+
+  object._section-words
+    emit._cur-addr swap
+    emit.prims.pop-any s.CALL.t0
+    2 pick s.t0 s.LI
+    12 s.t0 s.a1 s.BEQ
+    emit.prims.fail.wrong-user-type s.CALL
+    1 s.a1 s.LI
+    emit.prims.push-any s.CALL.t0
+    0 s.ra 0 s.JALR
+
+    emit._cur-addr swap
+    emit.prims.pop-ptr s.CALL.t0
+    3 pick s.a1 s.LI
+    emit.prims.push-any s.CALL.t0
+    0 s.ra 0 s.JALR
+  drop
+
+  rot drop
+;
 
 : emit.constant
   emit._cur-addr
