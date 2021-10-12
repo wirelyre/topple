@@ -31,6 +31,10 @@ variable emit._data-pointer
 : s.a0  10 ;
 : s.a1  11 ;
 : s.a2  12 ;
+: s.a3  13 ;
+: s.a4  14 ;
+: s.a5  15 ;
+: s.a6  16 ;
 : s.a7  17 ;
 : s.s11 27 ;
 : s.t3  28 ;
@@ -53,6 +57,8 @@ variable emit._data-pointer
   dup emit.imm20? not if "invalid immediate\n" 14 fail then
   1048575 and
 ;
+
+: emit._sext-12   dup 2048 and 2048 =   0 2048 - and or ;
 
 : s.R-type
   swap 12 << or
@@ -93,8 +99,8 @@ variable emit._data-pointer
 
 : s.split
   4294967295 and
-  dup 4095 and
-  dup 11 >>
+  dup 4095 and emit._sext-12
+  dup 11 >> 1 and
   rot 12 >> +
 ;
 
@@ -254,6 +260,15 @@ object._section-words
       93 s.a7 s.LI
       s.ECALL
 
+\ error: expected pointer
+    emit._cur-addr constant emit.prims.fail.expected-pointer
+      emit.prims.print-string s.CALL
+      10 114 101 116 110 105 111 112 32 100 101 116 99 101 112 120 101 17
+      emit._string
+      15 s.a0 s.LI
+      93 s.a7 s.LI
+      s.ECALL
+
 \ error: expected number
     emit._cur-addr constant emit.prims.fail.expected-number
       emit.prims.print-string s.CALL
@@ -290,6 +305,24 @@ object._section-words
       93 s.a7 s.LI
       s.ECALL
 
+\ error: failed to allocate
+    emit._cur-addr constant emit.prims.fail.failed-to-allocate
+      emit.prims.print-string s.CALL
+      10 101 116 97 99 111 108 108 97 32 111 116 32 100 101 108 105 97 102 19
+      emit._string
+      15 s.a0 s.LI
+      93 s.a7 s.LI
+      s.ECALL
+
+\ error: pointer out of bounds
+    emit._cur-addr constant emit.prims.fail.pointer-oob
+      emit.prims.print-string s.CALL
+      10 115 100 110 117 111 98 32 102 111 32 116 117 111 32 114 101 116 110
+        105 111 112 22 emit._string
+      15 s.a0 s.LI
+      93 s.a7 s.LI
+      s.ECALL
+
 \ pop anything
     emit._cur-addr constant emit.prims.pop-any
       32 s.t1 s.LUI
@@ -298,6 +331,19 @@ object._section-words
       0 10 - s.s0 s.s0 s.ADDI
       0 s.s0 s.a0 s.LD
       8 s.s0 s.a1 s.LHU
+      0 s.t0 0 s.JALR
+
+\ pop pointer
+    emit._cur-addr constant emit.prims.pop-ptr
+      32 s.t1 s.LUI
+      emit.prims.fail.stack-underflow emit._rel
+        s.s0 s.t1 s.BGEU
+      0 10 - s.s0 s.s0 s.ADDI
+      0 s.s0 s.a0 s.LD
+      8 s.s0 s.t1 s.LHU
+      1 s.t2 s.LI
+      emit.prims.fail.expected-pointer emit._rel
+        s.t2 s.t1 s.BNE
       0 s.t0 0 s.JALR
 
 \ pop number
@@ -665,6 +711,62 @@ object._section-words
       emit.prims.pop-num s.CALL.t0
       93 s.a7 s.LI
       s.ECALL
+
+\ block.new
+    emit._cur-addr words.builtin.block.new cell.set
+      0 s.ra s.s11 s.ADDI
+
+          0 s.a0 s.LI \ addr   = NULL, kernel's choice
+       4000 s.a1 s.LI \ length = 4000
+          3 s.a2 s.LI \ prot   = PROT_READ | PROT_WRITE
+         34 s.a3 s.LI \ flags  = MAP_PRIVATE | MAP_ANONYMOUS
+      0 1 - s.a4 s.LI \ fd     = -1
+          0 s.a5 s.LI \ offset = 0
+        222 s.a7 s.LI \ void *mmap(...)
+      s.ECALL
+
+      emit.prims.fail.failed-to-allocate emit._rel
+        s.a0 0 s.BEQ
+
+      1 s.a1 s.LI
+      emit.prims.push-any s.CALL.t0
+      0 s.s11 0 s.JALR
+
+\ @
+    emit._cur-addr words.builtin.@ cell.set
+      emit.prims.pop-ptr s.CALL.t0
+      emit.prims.get s.CALL.t0
+      emit.prims.push-any s.CALL.t0
+      0 s.ra 0 s.JALR
+
+\ !
+    emit._cur-addr words.builtin.! cell.set
+      emit.prims.pop-ptr s.CALL.t0
+      0 s.a0 s.a2 s.ADDI
+      emit.prims.pop-any s.CALL.t0
+      emit.prims.set s.CALL.t0
+      0 s.ra 0 s.JALR
+
+\ +p
+    emit._cur-addr words.builtin.+p cell.set
+      emit.prims.pop-num s.CALL.t0
+      0 s.a0 s.a1 s.ADDI
+      emit.prims.pop-ptr s.CALL.t0
+      10 s.t0 s.LI
+
+      4095 s.t1 s.LI
+      s.a0 s.t1 s.t1 s.AND
+      s.t0 s.t1 s.t1 s.DIVU
+      s.a1 s.t1 s.t1 s.ADD
+      400 s.t2 s.LI
+      emit.prims.fail.pointer-oob emit._rel
+        s.t2 s.t1 s.BGEU
+
+      s.t0 s.a1 s.a1 s.MUL
+      s.a1 s.a0 s.a0 s.ADD
+      1 s.a1 s.LI
+      emit.prims.push-any s.CALL.t0
+      0 s.ra 0 s.JALR
 
 drop
 
