@@ -18,6 +18,10 @@ bytes.new constant object._file
 variable emit._data-pointer
 268435456 emit._data-pointer!
 
+emit._data-pointer@
+dup constant emit._bytes-pointer-addr
+8 + emit._data-pointer!
+
 
 
 \ Assembly routines
@@ -28,6 +32,7 @@ variable emit._data-pointer
 : s.t1   6 ;
 : s.t2   7 ;
 : s.s0   8 ;
+: s.s1   9 ;
 : s.a0  10 ;
 : s.a1  11 ;
 : s.a2  12 ;
@@ -36,6 +41,7 @@ variable emit._data-pointer
 : s.a5  15 ;
 : s.a6  16 ;
 : s.a7  17 ;
+: s.s10 26 ;
 : s.s11 27 ;
 : s.t3  28 ;
 : s.t4  29 ;
@@ -278,6 +284,15 @@ object._section-words
       93 s.a7 s.LI
       s.ECALL
 
+\ error: expected bytes
+    emit._cur-addr constant emit.prims.fail.expected-bytes
+      emit.prims.print-string s.CALL
+      10 115 101 116 121 98 32 100 101 116 99 101 112 120 101 15
+      emit._string
+      15 s.a0 s.LI
+      93 s.a7 s.LI
+      s.ECALL
+
 \ error: division by zero
     emit._cur-addr constant emit.prims.fail.division-by-zero
       emit.prims.print-string s.CALL
@@ -319,6 +334,15 @@ object._section-words
       emit.prims.print-string s.CALL
       10 115 100 110 117 111 98 32 102 111 32 116 117 111 32 114 101 116 110
         105 111 112 22 emit._string
+      15 s.a0 s.LI
+      93 s.a7 s.LI
+      s.ECALL
+
+\ error: bytes index out of bounds
+    emit._cur-addr constant emit.prims.fail.bytes-oob
+      emit.prims.print-string s.CALL
+      10 115 100 110 117 111 98 32 102 111 32 116 117 111 32 120 101 100 110
+        105 32 115 101 116 121 98 26 emit._string
       15 s.a0 s.LI
       93 s.a7 s.LI
       s.ECALL
@@ -375,6 +399,19 @@ object._section-words
       0 s.a0 s.a1 s.ADDI
       emit.prims.pop-num s.CALL.t0
       0 s.t3 0 s.JALR
+
+\ pop bytes
+    emit._cur-addr constant emit.prims.pop-bytes
+      32 s.t1 s.LUI
+      emit.prims.fail.stack-underflow emit._rel
+        s.s0 s.t1 s.BGEU
+      0 10 - s.s0 s.s0 s.ADDI
+      0 s.s0 s.a0 s.LD
+      8 s.s0 s.t1 s.LHU
+      3 s.t2 s.LI
+      emit.prims.fail.expected-bytes emit._rel
+        s.t2 s.t1 s.BNE
+      0 s.t0 0 s.JALR
 
 \ push number
     emit._cur-addr constant emit.prims.push-num
@@ -721,12 +758,12 @@ object._section-words
       93 s.a7 s.LI
       s.ECALL
 
-\ block.new
-    emit._cur-addr words.builtin.block.new cell.set
-      0 s.ra s.s11 s.ADDI
+\ allocate
+    emit._cur-addr constant emit.prims.allocate
+      0 s.ra s.s10 s.ADDI
 
           0 s.a0 s.LI \ addr   = NULL, kernel's choice
-       4000 s.a1 s.LI \ length = 4000
+                      \ length, argument
           3 s.a2 s.LI \ prot   = PROT_READ | PROT_WRITE
          34 s.a3 s.LI \ flags  = MAP_PRIVATE | MAP_ANONYMOUS
       0 1 - s.a4 s.LI \ fd     = -1
@@ -737,6 +774,13 @@ object._section-words
       emit.prims.fail.failed-to-allocate emit._rel
         s.a0 0 s.BEQ
 
+      0 s.s10 0 s.JALR
+
+\ block.new
+    emit._cur-addr words.builtin.block.new cell.set
+      0 s.ra s.s11 s.ADDI
+      4000 s.a1 s.LI
+      emit.prims.allocate s.CALL
       1 s.a1 s.LI
       emit.prims.push-any s.CALL.t0
       0 s.s11 0 s.JALR
@@ -775,6 +819,138 @@ object._section-words
       s.a1 s.a0 s.a0 s.ADD
       1 s.a1 s.LI
       emit.prims.push-any s.CALL.t0
+      0 s.ra 0 s.JALR
+
+\ bytes.new
+    emit._cur-addr words.builtin.bytes.new cell.set
+      0 s.ra s.s11 s.ADDI
+
+      emit._bytes-pointer-addr s.s1 s.LI
+      0 s.s1 s.t0 s.LD
+      4095 s.t1 s.LI
+      s.t1 s.t0 s.t0 s.AND
+      24 s.t0 0 s.BNE
+
+        \ allocate pointer space
+        4096 s.a1 s.LI
+        emit.prims.allocate s.CALL
+        0 s.a0 s.s1 s.SD
+
+      \ allocate bytes, initialize
+      4096 s.a1 s.LI
+      emit.prims.allocate s.CALL
+      4080 s.t0 s.LI
+      0 s.t0 s.a0 s.SD
+      8    0 s.a0 s.SD
+
+      \ update next pointer
+      0 s.s1 s.t0 s.LD
+      8 s.t0 s.t1 s.ADDI
+      0 s.t1 s.s1 s.SD
+      0 s.a0 s.t0 s.SD
+
+      0 s.t0 s.a0 s.ADDI
+      3 s.a1 s.LI
+      emit.prims.push-any s.CALL.t0
+      0 s.s11 0 s.JALR
+
+\ bytes.clear
+    emit._cur-addr words.builtin.bytes.clear cell.set
+      emit.prims.pop-bytes s.CALL.t0
+      0 s.a0 s.a0 s.LD
+      8 0 s.a0 s.SD
+      0 s.ra 0 s.JALR
+
+\ bytes.length
+    emit._cur-addr words.builtin.bytes.length cell.set
+      emit.prims.pop-bytes s.CALL.t0
+      0 s.a0 s.a0 s.LD
+      8 s.a0 s.a0 s.LD
+      emit.prims.push-num s.CALL.t0
+      0 s.ra 0 s.JALR
+
+\ b%
+    emit._cur-addr words.builtin.b% cell.set
+      0 s.ra s.s11 s.ADDI
+      emit.prims.pop-bytes s.CALL.t0
+      0 s.a0 s.s1 s.ADDI
+
+      0 s.a0 s.a0 s.LD
+      0 s.a0 s.t0 s.LD
+      8 s.a0 s.t1 s.LD
+      108 s.t0 s.t1 s.BLTU \ capacity >= length
+
+        \ not enough space, allocate more
+        16 s.t0 s.t0 s.ADDI
+        s.t0 s.t0 s.a1 s.ADD
+        emit.prims.allocate s.CALL
+
+        \ copy data (t0 -> t1, length t2)
+        0 s.s1 s.t0 s.LD
+        0 s.a0 s.t1 s.ADDI
+        0 s.t0 s.t2 s.LD
+        16 s.t2 s.t2 s.ADDI
+          0 s.t0 s.t3 s.LD
+          0 s.t3 s.t1 s.SD
+          8 s.t0 s.t0 s.ADDI
+          8 s.t1 s.t1 s.ADDI
+          0 8 - s.t2 s.t2 s.ADDI
+        0 20 - s.t2 0 s.BNE
+
+        \ update pointer, free old memory
+        0 s.s1 s.t0 s.LD
+        0 s.a0 s.s1 s.SD
+        0 s.t0 s.a0 s.ADDI
+         0 s.a0 s.a1 s.LD   \ addr
+        16 s.a1 s.a1 s.ADDI \ length
+            215 s.a7 s.LI   \ int munmap(...)
+        s.ECALL
+
+        \ increase capacity
+        0 s.s1 s.t0 s.LD
+        0 s.t0 s.t1 s.LD
+        s.t1 s.t1 s.t1 s.ADD
+        16 s.t1 s.t1 s.ADDI
+        0 s.t1 s.t0 s.SD
+
+      emit.prims.pop-num s.CALL.t0
+
+      \ store byte, update length
+      0 s.s1 s.t0 s.LD
+      8 s.t0 s.t1 s.LD
+      16 s.t0 s.t2 s.ADDI
+      s.t1 s.t2 s.t2 s.ADD
+      0 s.a0 s.t2 s.SB
+      1 s.t1 s.t1 s.ADDI
+      8 s.t1 s.t0 s.SD
+
+      0 s.s11 0 s.JALR
+
+\ b@
+    emit._cur-addr words.builtin.b@ cell.set
+      emit.prims.pop-bytes s.CALL.t0
+      0 s.a0 s.a1 s.LD
+      emit.prims.pop-num s.CALL.t0
+      8 s.a1 s.t0 s.LD
+      emit.prims.fail.bytes-oob emit._rel
+        s.t0 s.a0 s.BGEU
+      16 s.a1 s.t0 s.ADDI
+      s.a0 s.t0 s.t0 s.ADD
+      0 s.t0 s.a0 s.LBU
+      emit.prims.push-num s.CALL.t0
+      0 s.ra 0 s.JALR
+
+\ b!
+    emit._cur-addr words.builtin.b! cell.set
+      emit.prims.pop-bytes s.CALL.t0
+      0 s.a0 s.a2 s.LD
+      emit.prims.pop-2-nums s.CALL.t0
+      8 s.a2 s.t0 s.LD
+      emit.prims.fail.bytes-oob emit._rel
+        s.t0 s.a1 s.BGEU
+      16 s.a2 s.t0 s.ADDI
+      s.a1 s.t0 s.t0 s.ADD
+      0 s.a0 s.t0 s.SB
       0 s.ra 0 s.JALR
 
 drop
@@ -885,7 +1061,7 @@ drop
 ;
 
 : emit.type
-  3 +
+  4 +
   dup 65535 > if "too many types\n" 15 fail then
 
   object._section-words
