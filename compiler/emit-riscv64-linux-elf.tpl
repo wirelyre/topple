@@ -297,7 +297,7 @@ object._section-words
         s.s0 s.t1 s.BGEU
       0 10 - s.s0 s.s0 s.ADDI
       0 s.s0 s.a0 s.LD
-      8 s.s0 s.a1 s.LD
+      8 s.s0 s.a1 s.LHU
       0 s.t0 0 s.JALR
 
 \ pop number
@@ -308,18 +308,18 @@ object._section-words
       0 10 - s.s0 s.s0 s.ADDI
       0 s.s0 s.a0 s.LD
       8 s.s0 s.t1 s.LHU
-      2 s.t1 s.LI
+      2 s.t2 s.LI
       emit.prims.fail.expected-number emit._rel
-        s.t1 s.t1 s.BNE
+        s.t2 s.t1 s.BNE
       0 s.t0 0 s.JALR
 
 \ pop two numbers
     emit._cur-addr constant emit.prims.pop-2-nums
-      0 s.t0 s.t2 s.ADDI
+      0 s.t0 s.t3 s.ADDI
       emit.prims.pop-num s.CALL.t0
       0 s.a0 s.a1 s.ADDI
       emit.prims.pop-num s.CALL.t0
-      0 s.t2 0 s.JALR
+      0 s.t3 0 s.JALR
 
 \ push number
     emit._cur-addr constant emit.prims.push-num
