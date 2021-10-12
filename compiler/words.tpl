@@ -124,6 +124,7 @@ words._strpool span.new words._str!
 : words.builtin.b%     0 37 98             words._insert-builtin ;
 : words.builtin.b@     0 64 98             words._insert-builtin ;
 : words.builtin.b!     0 33 98             words._insert-builtin ;
+: words.builtin.argv   0 118 103 114 97    words._insert-builtin ;
 : words.builtin.file.read
   0 100 97 101 114 46 101 108 105 102      words._insert-builtin ;
 

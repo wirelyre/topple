@@ -41,6 +41,9 @@ dup constant emit._bytes-pointer-addr
 : s.a5  15 ;
 : s.a6  16 ;
 : s.a7  17 ;
+: s.s7  23 ;
+: s.s8  24 ;
+: s.s9  25 ;
 : s.s10 26 ;
 : s.s11 27 ;
 : s.t3  28 ;
@@ -639,6 +642,7 @@ object._section-words
 
 \ over
     emit._cur-addr words.builtin.over cell.set
+    emit._cur-addr constant emit.prims.over
       131092 s.t0 s.LI
       emit.prims.fail.stack-underflow emit._rel
         s.t0 s.s0 s.BLT
@@ -823,6 +827,7 @@ object._section-words
 
 \ bytes.new
     emit._cur-addr words.builtin.bytes.new cell.set
+    emit._cur-addr constant emit.prims.bytes.new
       0 s.ra s.s11 s.ADDI
 
       emit._bytes-pointer-addr s.s1 s.LI
@@ -871,6 +876,7 @@ object._section-words
 
 \ b%
     emit._cur-addr words.builtin.b% cell.set
+    emit._cur-addr constant emit.prims.b%
       0 s.ra s.s11 s.ADDI
       emit.prims.pop-bytes s.CALL.t0
       0 s.a0 s.s1 s.ADDI
@@ -954,95 +960,6 @@ object._section-words
       0 s.ra 0 s.JALR
 
 drop
-
-
-
-\ Object file generation
-
-: object.init
-  object._section-main
-    32     s.s0 s.LUI
-    231072 s.sp s.LI
-  drop
-;
-
-: object._file-size
-  232
-  object._section-words bytes.length +
-  object._section-main bytes.length +
-;
-
-: object.finalize
-
-  object._section-main
-    0 s.a0 s.LI
-    93 s.a7 s.LI
-    s.ECALL
-  drop
-
-  object._file
-
-  \ magic
-  127 b%1
-   69 b%1
-   76 b%1
-   70 b%1
-
-    2 b%1 \ EI_CLASS = ELFCLASS64
-    1 b%1 \ EI_DATA = ELFDATA2LSB
-    1 b%1 \ EI_VERSION = 1 (current)
-    3 b%1 \ EI_OSABI = Linux
-    0 b%8 \ padding
-
-    2 b%2 \ e_type = ET_EXEC
-  243 b%2 \ e_machine = EM_RISCV
-    1 b%4 \ e_version = 1
-
-  emit._cur-addr b%8 \ e_entry
-   64 b%8 \ e_phoff
-    0 b%8 \ e_shoff
-    0 b%4 \ e_flags
-   64 b%2 \ e_ehsize
-   56 b%2 \ e_phentsize
-    3 b%2 \ e_phnum
-   64 b%2 \ e_shentsize
-    0 b%2 \ e_shnum
-    0 b%2 \ e_shstrndx
-
-  \ Program header entry 1 (stacks)
-    1 b%4 \ p_type = PT_LOAD
-    6 b%4 \ p_flags = PF_W | PF_R
-    0 b%8 \ p_offset
-  131072 b%8 \ p_vaddr
-    0 b%8 \ p_paddr
-    0 b%8 \ p_filesz
-  131072 b%8 \ p_memsz
-    0 b%8 \ p_align
-
-  \ Program header entry 2 (code)
-    1 b%4 \ p_type = PT_LOAD
-    5 b%4 \ p_flags = PF_X | PF_R
-    0 b%8 \ p_offset
-  262144 b%8 \ p_vaddr
-    0 b%8 \ p_paddr
-    object._file-size b%8 \ p_filesz
-    object._file-size b%8 \ p_memsz
-    0 b%8 \ p_align
-
-  \ Program header entry 3 (data)
-    1 b%4 \ p_type = PT_LOAD
-    6 b%4 \ p_flags = PF_W | PF_R
-    0 b%8 \ p_offset
-  268435456 b%8 \ p_vaddr
-    0 b%8 \ p_paddr
-    0 b%8 \ p_filesz
-  emit._data-pointer@ 268435456 - b%8 \ p_memsz
-    0 b%8 \ p_align
-
-  object._section-words bytes.append
-  object._section-main  bytes.append
-
-;
 
 
 
@@ -1197,3 +1114,117 @@ drop
 ;
 
 : emit.word.exit emit.word.; ;
+
+
+
+\ Object file generation
+
+: object.init
+  object._section-main
+    \ save command-line arguments
+    0 s.sp s.s7 s.LD
+    0 1 - s.s7 s.s7 s.ADDI \ skip the first argument
+    16 s.sp s.s8 s.ADDI
+
+    32     s.s0 s.LUI
+    231072 s.sp s.LI
+
+    emit.prims.bytes.new s.CALL
+    60 s.s7 0 s.BEQ
+
+      \ next argument
+      0 s.s8 s.s9 s.LD
+        0 s.s9 s.a0 s.LBU
+        emit.prims.push-num s.CALL.t0
+        emit.prims.over s.CALL
+        emit.prims.b%   s.CALL
+        1 s.s9 s.s9 s.ADDI
+        0 1 - s.s9 s.t0 s.LBU
+        0 36 - s.t0 0 s.BNE
+
+      0 1 - s.s7 s.s7 s.ADDI
+      8 s.s8 s.s8 s.ADDI
+      0 56 - 0 s.JAL
+
+    emit.constant words.builtin.argv cell.set
+
+  drop
+;
+
+: object._file-size
+  232
+  object._section-words bytes.length +
+  object._section-main bytes.length +
+;
+
+: object.finalize
+
+  object._section-main
+    0 s.a0 s.LI
+    93 s.a7 s.LI
+    s.ECALL
+  drop
+
+  object._file
+
+  \ magic
+  127 b%1
+   69 b%1
+   76 b%1
+   70 b%1
+
+    2 b%1 \ EI_CLASS = ELFCLASS64
+    1 b%1 \ EI_DATA = ELFDATA2LSB
+    1 b%1 \ EI_VERSION = 1 (current)
+    3 b%1 \ EI_OSABI = Linux
+    0 b%8 \ padding
+
+    2 b%2 \ e_type = ET_EXEC
+  243 b%2 \ e_machine = EM_RISCV
+    1 b%4 \ e_version = 1
+
+  emit._cur-addr b%8 \ e_entry
+   64 b%8 \ e_phoff
+    0 b%8 \ e_shoff
+    0 b%4 \ e_flags
+   64 b%2 \ e_ehsize
+   56 b%2 \ e_phentsize
+    3 b%2 \ e_phnum
+   64 b%2 \ e_shentsize
+    0 b%2 \ e_shnum
+    0 b%2 \ e_shstrndx
+
+  \ Program header entry 1 (stacks)
+    1 b%4 \ p_type = PT_LOAD
+    6 b%4 \ p_flags = PF_W | PF_R
+    0 b%8 \ p_offset
+  131072 b%8 \ p_vaddr
+    0 b%8 \ p_paddr
+    0 b%8 \ p_filesz
+  131072 b%8 \ p_memsz
+    0 b%8 \ p_align
+
+  \ Program header entry 2 (code)
+    1 b%4 \ p_type = PT_LOAD
+    5 b%4 \ p_flags = PF_X | PF_R
+    0 b%8 \ p_offset
+  262144 b%8 \ p_vaddr
+    0 b%8 \ p_paddr
+    object._file-size b%8 \ p_filesz
+    object._file-size b%8 \ p_memsz
+    0 b%8 \ p_align
+
+  \ Program header entry 3 (data)
+    1 b%4 \ p_type = PT_LOAD
+    6 b%4 \ p_flags = PF_W | PF_R
+    0 b%8 \ p_offset
+  268435456 b%8 \ p_vaddr
+    0 b%8 \ p_paddr
+    0 b%8 \ p_filesz
+  emit._data-pointer@ 268435456 - b%8 \ p_memsz
+    0 b%8 \ p_align
+
+  object._section-words bytes.append
+  object._section-main  bytes.append
+
+;
