@@ -3,6 +3,8 @@
 \ Drives the compiler.
 
 : main
+  object.init
+
   "Output file: " args.output-file span.puts "\n\n"
 
   bytes.new
@@ -21,11 +23,12 @@
   repeat drop
 
   drop
+
+  object.finalize
+  bytes.new args.output-file span.b%
+  file.write
+
+  not if "could not write file\n" then
 ;
 
-object.init
-
 main
-
-object.finalize
-bytes.dump
