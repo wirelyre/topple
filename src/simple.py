@@ -127,6 +127,16 @@ def file_read():
     except IOError:
         S.append(0)
 
+def file_write():
+    filename, contents = S.pop(), S.pop()
+    try:
+        mode = "xb" if sys.version_info.major == 3 else "wxb"
+        with open(bytes(filename), mode) as file:
+            file.write(contents)
+            S.append(num(-True))
+    except IOError:
+        S.append(num(-False))
+
 
 def block_new():
     S.append({"block": [None] * 400, "index": 0})
@@ -204,6 +214,7 @@ words = {
     "b@": "bytes_get",
     "b!": "bytes_set",
     "file.read": "file_read",
+    "file.write": "file_write",
     "block.new": "block_new",
     "@": "pointer_get",
     "!": "pointer_set",
