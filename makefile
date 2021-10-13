@@ -1,6 +1,6 @@
 .PHONY: all clean test
 
-all: build/topple-c build/stage1
+all: build/topple-c build/stage1 build/stage2
 
 build/topple-c: src/c/topple.c src/c/topple.h src/c/parse.c \
 		src/c/primitives.c src/c/util.c
@@ -20,6 +20,12 @@ build/stage1: src/simple.py $(compiler_sources)
 		| python src/simple.py \
 		| python - -o build/stage1 $(compiler_sources)
 	chmod +x build/stage1
+
+build/stage2: build/stage1 $(compiler_sources)
+	@mkdir -p build
+	rm -f build/stage2
+	qemu-riscv64 ./build/stage1 -o build/stage2 $(compiler_sources)
+	chmod +x build/stage2
 
 clean:
 	rm -rf build
