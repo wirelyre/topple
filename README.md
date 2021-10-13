@@ -9,7 +9,7 @@ Topple is a simple, teeny-tiny programming language that is easy to implement.
   other features.  The **full specification** is at the bottom of this
   document.
 
-- **easy to implement:** There are three complete implementations of the
+- **easy to implement:** There are four complete implementations of the
   language in this repository.  The shortest is under 300 lines of code.
 
 ```
@@ -40,7 +40,7 @@ features are marked with a unicorn: 🦄.
   - Another full implementation in Python (`src/python`).
   - A full implementation in C (`src/c`).
   - 🦄 A simple implementation in RISC-V assembly / raw machine code.
-  - 🦄 A compiler for the full language written in Topple itself (`compiler`).
+  - A compiler for the full language written in Topple itself (`compiler`).
 
 
 

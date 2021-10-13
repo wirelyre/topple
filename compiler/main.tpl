@@ -5,8 +5,6 @@
 : main
   object.init
 
-  "Output file: " args.output-file span.puts "\n\n"
-
   bytes.new
 
   begin
