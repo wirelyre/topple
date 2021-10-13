@@ -127,6 +127,8 @@ words._strpool span.new words._str!
 : words.builtin.argv   0 118 103 114 97    words._insert-builtin ;
 : words.builtin.file.read
   0 100 97 101 114 46 101 108 105 102      words._insert-builtin ;
+: words.builtin.file.write
+  0 101 116 105 114 119 46 101 108 105 102   words._insert-builtin ;
 
 : words.builtin.block.new
   0 119 101 110 46 107 99 111 108 98       words._insert-builtin ;

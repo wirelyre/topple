@@ -368,6 +368,15 @@ object._section-words
       93 s.a7 s.LI
       s.ECALL
 
+\ error: cannot write file
+    emit._cur-addr constant emit.prims.fail.cannot-write-file
+      emit.prims.print-string s.CALL
+      10 101 108 105 102 32 101 116 105 114 119 32 116 111 110 110 97 99 18
+      emit._string
+      15 s.a0 s.LI
+      93 s.a7 s.LI
+      s.ECALL
+
 \ pop anything
     emit._cur-addr constant emit.prims.pop-any
       32 s.t1 s.LUI
@@ -1036,6 +1045,70 @@ object._section-words
       57     s.a7 s.LI   \ int close(...)
       s.ECALL
 
+      0 s.s9 0 s.JALR
+
+\ file.write
+    emit._cur-addr words.builtin.file.write cell.set
+      0 s.ra s.s9 s.ADDI
+
+      \ append 0 to filename, leave length unchanged
+      0 s.a0 s.LI
+      emit.prims.push-num s.CALL.t0
+      emit.prims.over s.CALL
+      emit.prims.b% s.CALL
+      0 20 - s.s0 s.s0 s.ADDI
+      10 s.s0 s.a1 s.LD
+      0 s.a1 s.a1 s.LD
+      8 s.a1 s.t0 s.LD
+      0 1 - s.t0 s.t0 s.ADDI
+      8 s.t0 s.a1 s.SD
+
+      0 100 - s.a0 s.LI   \ dirfd = AT_FDCWD
+      16 s.a1 s.a1 s.ADDI \ pathname
+      193     s.a2 s.LI   \ flags = O_WRONLY | O_CREAT | O_EXCL
+      0       s.a3 s.LI   \ mode
+      56      s.a7 s.LI   \ int openat(...)
+      s.ECALL
+
+        \ can't open? return 0
+        20 0 s.a0 s.BGE
+        0 s.a0 s.LI
+        emit.prims.push-num s.CALL.t0
+        0 s.s9 0 s.JALR
+
+       0 s.a0 s.sp s.SD \ sp+0 -- fd
+       0 s.s0 s.t0 s.LD
+       0 s.t0 s.t0 s.LD
+      16 s.t0 s.t1 s.ADDI
+       8 s.t1 s.sp s.SD \ sp+8 -- addr
+       8 s.t0 s.t1 s.LD
+      16 s.t1 s.sp s.SD \ sp+16 -- len
+
+         0 s.sp s.a0 s.LD \ fd
+         8 s.sp s.a1 s.LD \ *buf
+        16 s.sp s.a2 s.LD \ count
+        64      s.a7 s.LI \ ssize_t write(...)
+        s.ECALL
+
+          12 0 s.a0 s.BGE
+          emit.prims.fail.cannot-write-file s.CALL
+
+        \ update length
+        8 s.sp s.t0 s.LD
+        s.a0 s.t0 s.t0 s.ADD
+        8 s.t0 s.sp s.SD
+        16 s.sp s.t0 s.LD
+        s.a0 s.t0 s.t0 s.SUB
+        16 s.t0 s.sp s.SD
+
+        0 56 - s.a0 0 s.BNE
+
+      0 s.sp s.a0 s.LD \ fd
+      57     s.a7 s.LI \ int close(...)
+      s.ECALL
+
+      0 1 - s.a0 s.LI
+      emit.prims.push-num s.CALL.t0
       0 s.s9 0 s.JALR
 
 drop
