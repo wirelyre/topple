@@ -25,7 +25,7 @@ def c_interpreter(test):
     try:
         with open(test, "rb") as t:
             return subprocess.check_output(
-                ["build/topple-c"], stdin=t, stderr=subprocess.STDOUT
+                ["build/c/topple"], stdin=t, stderr=subprocess.STDOUT
             )
     except:
         return None
@@ -68,12 +68,11 @@ def simple_interpreter(test, executable):
 def wasm(test):
     try:
         subprocess.check_output(
-            [sys.executable, "build/topple-wasm.py", "-o", "build/test.tmp.wasm", test]
+            ["wasm3", "build/wasm/topple", "-o", "build/test.tmp.wasm", test]
         )
 
         return subprocess.check_output(
-            ["wasm3", "build/test.tmp.wasm"],
-            stderr=subprocess.STDOUT,
+            ["wasm3", "build/test.tmp.wasm"], stderr=subprocess.STDOUT
         )
 
     except:
@@ -81,7 +80,6 @@ def wasm(test):
 
     finally:
         Path("build/test.tmp.wasm").unlink(missing_ok=True)
-        pass
 
 
 ERROR = re.compile(br"\\ ERROR")
@@ -114,14 +112,14 @@ for test in tests:
             print("ERROR")
             unexpected.append((lang, test, expected, found))
 
-    # start("C", test)
-    # end("C", test, expected, c_interpreter(test))
-    # start("Python", test)
-    # end("Python", test, expected, python_interpreter(test))
-    # start("simple-Py2", test)
-    # end("simple-Py2", test, expected, simple_interpreter(test, "python2"))
-    # start("simple-Py3", test)
-    # end("simple-Py3", test, expected, simple_interpreter(test, "python3"))
+    start("C", test)
+    end("C", test, expected, c_interpreter(test))
+    start("Python", test)
+    end("Python", test, expected, python_interpreter(test))
+    start("simple-Py2", test)
+    end("simple-Py2", test, expected, simple_interpreter(test, "python2"))
+    start("simple-Py3", test)
+    end("simple-Py3", test, expected, simple_interpreter(test, "python3"))
     start("wasm", test)
     end("wasm", test, expected, wasm(test))
 
