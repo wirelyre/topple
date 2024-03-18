@@ -355,24 +355,24 @@ constant rt.load.stack
            s.return
   s.end
   \ stack underflow
-  0 10 119 111 108 102 114 101 118 111 32 107 99 97 116 115 object.error
+  0 10 119 111 108 102 114 101 100 110 117 32 107 99 97 116 115 object.error
 object.func-end
 
-\ [i64,i32,i32]->[] object.func-start
-\ constant rt.store.stack
-\   l[i32]
-\   rt.sp s.global.get
-\   2     s.local.get
-\   10    s.i32.const
-\         s.i32.mul
-\         s.i32.add
-\   3     s.local.tee
-\   0     s.local.get
-\   0     s.i64.store
-\   3     s.local.get
-\   1     s.local.get
-\   8     s.i32.store8
-\ object.func-end
+[i64,i32,i32]->[] object.func-start
+constant rt.store.stack
+  l[i32]
+  rt.sp s.global.get
+  2     s.local.get
+  10    s.i32.const
+        s.i32.mul
+        s.i32.add
+  3     s.local.tee
+  0     s.local.get
+  0     s.i64.store
+  3     s.local.get
+  1     s.local.get
+  8     s.i32.store8
+object.func-end
 
 [i64,i32]->[] object.func-start
 constant rt.push
@@ -404,15 +404,15 @@ constant rt.push.num
   rt.push s.call
 object.func-end
 
-\ [i32]->[] object.func-start
-\ constant rt.push.bool
-\   l[]
-\   0 s.i32.const
-\   0 s.local.get
-\   s.i32.sub
-\   s.i64.extend_i32_s
-\   rt.push.num s.call
-\ object.func-end
+[i32]->[] object.func-start
+constant rt.push.bool
+  l[]
+  0 s.i32.const
+  0 s.local.get
+  s.i32.sub
+  s.i64.extend_i32_s
+  rt.push.num s.call
+object.func-end
 
 []->[i64,i32] object.func-start
 constant rt.pop
@@ -437,40 +437,40 @@ constant rt.pop.num
   s.end
 object.func-end
 
-\ []->[i32] object.func-start
-\ constant rt.pop.bool
-\   l[]
-\   rt.pop s.call
-\          s.drop
-\   0      s.i64.const
-\          s.i64.ne
-\ object.func-end
-\ 
-\ [i32]->[i64,i32] object.func-start
-\ constant rt.load.mem
-\   l[]
-\   0 s.local.get   0 s.i64.load
-\   0 s.local.get   8 s.i32.load16_u
-\   0 s.local.tee
-\   s.i32.eqz
-\   s.if
-\     \ uninitialized data
-\     0 97 116 97 100 32 100 101 122 105 108 97 105 116 105 110 105 110 117
-\     object.error
-\   s.end
-\   0 s.local.get
-\ object.func-end
-\ 
-\ [i64,i32,i32]->[] object.func-start
-\ constant rt.store.mem
-\   l[]
-\   2 s.local.get   0 s.local.get   0 s.i64.store
-\   2 s.local.get   1 s.local.get   8 s.i32.store16
-\ object.func-end
-\ 
-\ 
-\ 
-\ \ 'emit' interface
+[]->[i32] object.func-start
+constant rt.pop.bool
+  l[]
+  rt.pop s.call
+         s.drop
+  0      s.i64.const
+         s.i64.ne
+object.func-end
+
+[i32]->[i64,i32] object.func-start
+constant rt.load.mem
+  l[]
+  0 s.local.get   0 s.i64.load
+  0 s.local.get   8 s.i32.load16_u
+  0 s.local.tee
+  s.i32.eqz
+  s.if
+    \ uninitialized data
+    0 10 97 116 97 100 32 100 101 122 105 108 97 105 116 105 110 105 110 117
+    object.error
+  s.end
+  0 s.local.get
+object.func-end
+
+[i64,i32,i32]->[] object.func-start
+constant rt.store.mem
+  l[]
+  2 s.local.get   0 s.local.get   0 s.i64.store
+  2 s.local.get   1 s.local.get   8 s.i32.store16
+object.func-end
+
+
+
+\ 'emit' interface
 
 : object.init
   object.sec.main
@@ -541,22 +541,6 @@ object.func-end
 
 ;
 
-
-
-\ : emit.word.start
-\   object._sec.func []->[] b%u drop
-\   object._tmp
-\   object._func
-\ ;
-\ 
-\ : emit.word.end
-\   s.end
-\   drop
-\   object._finish-code
-\ ;
-
-
-
 : emit.word.:
   object.sec.func []->[] b%u drop
   object.sec.tmp l[] drop
@@ -574,70 +558,60 @@ object.func-end
 : emit.type     "type: " . "\n" 0 0 ;
 
 : emit.constant
-\  []->[] object.func-start -rot
-\    l[]
-\    object.data-addr s.i32.const
-\    rt.load.mem s.call
-\    rt.push s.call
-\  object.func-end
-\
-\  object.sec.main
-\    rt.pop s.call
-\    object.data-addr s.i32.const
-\    rt.store.mem s.call
-\  drop
-\
-\  object.sec.data 0b%10 drop
-  0
+  []->[] object.func-start -rot
+    l[]
+    object.data-addr s.i32.const
+    rt.load.mem s.call
+    rt.push s.call
+  object.func-end
+
+  object.sec.main
+    rt.pop s.call
+    object.data-addr s.i32.const
+    rt.store.mem s.call
+  drop
+
+  object.sec.data 0b%10 drop
 ;
 
 : emit.variable
-\  []->[] object.func-start -rot
-\    l[]
-\    object.data-addr s.i32.const
-\    rt.load.mem s.call
-\    rt.push s.call
-\  object.func-end
-\
-\  []->[] object.func-start -rot
-\    l[]
-\    rt.pop s.call
-\    object.data-addr s.i32.const
-\    rt.store.mem s.call
-\  object.func-end
-\
-\  object.sec.data 0b%10 drop
-  0 0
+  []->[] object.func-start -rot
+    l[]
+    object.data-addr s.i32.const
+    rt.load.mem s.call
+    rt.push s.call
+  object.func-end
+
+  []->[] object.func-start -rot
+    l[]
+    rt.pop s.call
+    object.data-addr s.i32.const
+    rt.store.mem s.call
+  object.func-end
+
+  object.sec.data 0b%10 drop
 ;
 
 : emit.word.string
-\  object.sec.tmp
-\    object.data-addr s.i32.const
-\    rt.write s.call
-\  drop
-\  object.sec.data
-\    object.data-addr 8 +    b%4   \ addr
-\    dup bytes.length -rot 0 b%4   \ len (placeholder)
-\    swap span.unescape            \ data
-\    swap object.sec.data    b!4   \ len (fixed up)
+  object.sec.tmp
+    object.data-addr s.i32.const
+    rt.write s.call
   drop
+  object.sec.data
+    object.data-addr 8 +    b%4   \ addr
+    dup bytes.length -rot 0 b%4   \ len (placeholder)
+    dup rot span.unescape         \ data
+    -rot                    b!4   \ len (fixed up)
 ;
 
-\: emit.word.if   object.sec.tmp rt.pop.bool s.call s.if drop 0 ;
-\: emit.word.if-else        drop      object.sec.tmp s.else drop 0 ;
-\: emit.word.if-else-then   drop drop object.sec.tmp s.end  drop   ;
-\: emit.word.if-then        drop      object.sec.tmp s.end  drop   ;
-: emit.word.if 0 ;
-: emit.word.if-else drop 0 ;
-: emit.word.if-else-then drop drop ;
-: emit.word.if-then drop ;
+: emit.word.if   object.sec.tmp rt.pop.bool s.call s.if drop 0 ;
+: emit.word.if-else        drop      object.sec.tmp s.else drop 0 ;
+: emit.word.if-else-then   drop drop object.sec.tmp s.end  drop   ;
+: emit.word.if-then        drop      object.sec.tmp s.end  drop   ;
 
-\: emit.word.begin              object.sec.tmp s.loop                  drop 0 ;
-\: emit.word.while              object.sec.tmp rt.pop.bool s.call s.if drop 0 ;
-\: emit.word.repeat   drop drop object.sec.tmp 1 s.br s.end s.end      drop ;
-: emit.word.begin 0 ;
-: emit.word.while 0 ;
-: emit.word.repeat drop drop ;
+: emit.word.begin              object.sec.tmp s.loop                  drop 0 ;
+: emit.word.while              object.sec.tmp rt.pop.bool s.call s.if drop 0 ;
+: emit.word.repeat   drop drop object.sec.tmp 1 s.br s.end s.end      drop ;
 
 : emit.word.exit   object.sec.tmp s.return drop ;
 
@@ -655,13 +629,6 @@ object.word words.builtin.+ cell.set
   rt.push.num s.call
 object.func-end
 
-object.word words.builtin.fail cell.set
-  l[]
-  rt.pop.num  s.call
-              s.i32.wrap_i64
-  wasi.proc_exit s.call
-object.func-end
-
 object.word words.builtin.- cell.set
   l[i64]
   rt.pop.num s.call
@@ -672,220 +639,225 @@ object.word words.builtin.- cell.set
   rt.push.num s.call
 object.func-end
 
-\ \  emit.word.start words.builtin.* cell.set
-\ \    l[]
-\ \    rt.stack.pop-num  s.call
-\ \    rt.stack.pop-num  s.call
-\ \                      s.i64.mul
-\ \    rt.stack.push-num s.call
-\ \  emit.word.end
-\ 
-\ \  emit.word.start words.builtin./ cell.set
-\ \    l[i64]
-\ \    rt.stack.pop-num  s.call
-\ \    0                 s.local.tee
-\ \    s.i64.eqz
-\ \    s.if
-\ \      \ division by zero
-\ \      0 111 114 101 122 32 121 98 32 110 111 105 115 105 118 105 100 object._error
-\ \    s.end
-\ \    rt.stack.pop-num  s.call
-\ \    0                 s.local.get
-\ \                      s.i64.div_u
-\ \    rt.stack.push-num s.call
-\ \  emit.word.end
-\ 
-\ \  emit.word.start words.builtin.<< cell.set
-\ \    l[i64]
-\ \    rt.stack.pop-num s.call
-\ \    0                s.local.set
-\ \    rt.stack.pop-num s.call
-\ \    0                s.local.get
-\ \                     s.i64.shl
-\ \    rt.stack.push-num s.call
-\ \  emit.word.end
-\ 
-\ \  emit.word.start words.builtin.>> cell.set
-\ \    l[i64]
-\ \    rt.stack.pop-num s.call
-\ \    0                s.local.set
-\ \    rt.stack.pop-num s.call
-\ \    0                s.local.get
-\ \                     s.i64.shr_u
-\ \    rt.stack.push-num s.call
-\ \  emit.word.end
-\ 
-\ \  emit.word.start words.builtin.not cell.set
-\ \    l[]
-\ \    rt.stack.pop-num  s.call
-\ \    -1                s.i64.const
-\ \                      s.i64.xor
-\ \    rt.stack.push-num s.call
-\ \  emit.word.end
-\ 
-\ \  emit.word.start words.builtin.and cell.set
-\ \    l[]
-\ \    rt.stack.pop-num  s.call
-\ \    rt.stack.pop-num  s.call
-\ \                      s.i64.and
-\ \    rt.stack.push-num s.call
-\ \  emit.word.end
-\ 
-\ \  emit.word.start words.builtin.or cell.set
-\ \    l[]
-\ \    rt.stack.pop-num  s.call
-\ \    rt.stack.pop-num  s.call
-\ \                      s.i64.or
-\ \    rt.stack.push-num s.call
-\ \  emit.word.end
-\ 
-\ \  emit.word.start words.builtin.xor cell.set
-\ \    l[]
-\ \    rt.stack.pop-num  s.call
-\ \    rt.stack.pop-num  s.call
-\ \                      s.i64.xor
-\ \    rt.stack.push-num s.call
-\ \  emit.word.end
-\ 
-\ \  emit.word.start words.builtin.= cell.set
-\ \    l[]
-\ \    rt.stack.pop-num   s.call
-\ \    rt.stack.pop-num   s.call
-\ \                       s.i64.eq
-\ \    rt.stack.push-bool s.call
-\ \  emit.word.end
-\ 
-\ \  emit.word.start words.builtin.<> cell.set
-\ \    l[]
-\ \    rt.stack.pop-num   s.call
-\ \    rt.stack.pop-num   s.call
-\ \                       s.i64.ne
-\ \    rt.stack.push-bool s.call
-\ \  emit.word.end
-\ 
-\ \  emit.word.start words.builtin.< cell.set
-\ \    l[]
-\ \    rt.stack.pop-num   s.call
-\ \    rt.stack.pop-num   s.call
-\ \                       s.i64.gt_u   \ reversed because the Wasm stack is backwards
-\ \    rt.stack.push-bool s.call
-\ \  emit.word.end
-\ 
-\ \  emit.word.start words.builtin.> cell.set
-\ \    l[]
-\ \    rt.stack.pop-num   s.call
-\ \    rt.stack.pop-num   s.call
-\ \                       s.i64.lt_u   \ reversed
-\ \    rt.stack.push-bool s.call
-\ \  emit.word.end
-\ 
-\ \  emit.word.start words.builtin.<= cell.set
-\ \    l[]
-\ \    rt.stack.pop-num   s.call
-\ \    rt.stack.pop-num   s.call
-\ \                       s.i64.ge_u   \ reversed
-\ \    rt.stack.push-bool s.call
-\ \  emit.word.end
-\ 
-\ \  emit.word.start words.builtin.>= cell.set
-\ \    l[]
-\ \    rt.stack.pop-num   s.call
-\ \    rt.stack.pop-num   s.call
-\ \                       s.i64.le_u   \ reversed
-\ \    rt.stack.push-bool s.call
-\ \  emit.word.end
-\ 
-\ \  emit.word.start words.builtin.dup cell.set
-\ \    l[]
-\ \    0 s.i64.const
-\ \    rt.stack.load s.call
-\ \    rt.stack.push s.call
-\ \  emit.word.end
-\ 
-\ \  emit.word.start words.builtin.over cell.set
-\ \    l[]
-\ \    1 s.i64.const
-\ \    rt.stack.load s.call
-\ \    rt.stack.push s.call
-\ \  emit.word.end
-\ 
-\ \  emit.word.start words.builtin.drop cell.set
-\ \    l[]
-\ \    rt.stack.pop s.call
-\ \                 s.drop
-\ \                 s.drop
-\ \  emit.word.end
-\ 
-\ \  emit.word.start words.builtin.swap cell.set
-\ \    l[]
-\ \    0 s.i64.const   rt.stack.load  s.call
-\ \    1 s.i64.const   rt.stack.load  s.call
-\ \    0 s.i32.const   rt.stack.store s.call
-\ \    1 s.i32.const   rt.stack.store s.call
-\ \  emit.word.end
-\ 
-\ \  emit.word.start words.builtin.nip cell.set
-\ \    l[]
-\ \    rt.stack.pop  s.call
-\ \    rt.stack.pop  s.call   s.drop s.drop
-\ \    rt.stack.push s.call
-\ \  emit.word.end
-\ 
-\ \  emit.word.start words.builtin.tuck cell.set
-\ \    \ a b -- b a b
-\ \    l[]
-\ 
-\ \    0 s.i64.const   rt.stack.load s.call
-\ \    1 s.i64.const   rt.stack.load s.call
-\ \    0 s.i64.const   rt.stack.load s.call
-\ \    1 s.i32.const   rt.stack.store s.call
-\ \    0 s.i32.const   rt.stack.store s.call
-\ \                    rt.stack.push s.call
-\ \  emit.word.end
-\ 
-\ \  emit.word.start words.builtin.rot cell.set
-\ \    l[]
-\ \    0 s.i64.const   rt.stack.load s.call
-\ \    1 s.i64.const   rt.stack.load s.call
-\ \    2 s.i64.const   rt.stack.load s.call
-\ \    0 s.i32.const   rt.stack.store s.call
-\ \    2 s.i32.const   rt.stack.store s.call
-\ \    1 s.i32.const   rt.stack.store s.call
-\ \  emit.word.end
-\ 
-\ \  emit.word.start words.builtin.-rot cell.set
-\ \    l[]
-\ \    0 s.i64.const   rt.stack.load s.call
-\ \    1 s.i64.const   rt.stack.load s.call
-\ \    2 s.i64.const   rt.stack.load s.call
-\ \    1 s.i32.const   rt.stack.store s.call
-\ \    0 s.i32.const   rt.stack.store s.call
-\ \    2 s.i32.const   rt.stack.store s.call
-\ \  emit.word.end
-\ 
-\ \  emit.word.start words.builtin.pick cell.set
-\ \    l[]
-\ \    rt.stack.pop-num s.call
-\ \    rt.stack.load    s.call
-\ \    rt.stack.push    s.call
-\ \  emit.word.end
+object.word words.builtin.* cell.set
+  l[]
+  rt.pop.num  s.call
+  rt.pop.num  s.call
+              s.i64.mul
+  rt.push.num s.call
+object.func-end
+
+object.word words.builtin./ cell.set
+  l[i64]
+  rt.pop.num s.call
+  0          s.local.tee
+  s.i64.eqz
+  s.if
+    \ division by zero
+    0 10 111 114 101 122 32 121 98 32 110 111 105 115 105 118 105 100
+    object.error
+  s.end
+  rt.pop.num  s.call
+  0           s.local.get
+              s.i64.div_u
+  rt.push.num s.call
+object.func-end
+
+object.word words.builtin.<< cell.set
+  l[i64]
+  rt.pop.num  s.call
+  0           s.local.set
+  rt.pop.num  s.call
+  0           s.local.get
+              s.i64.shl
+  rt.push.num s.call
+object.func-end
+
+object.word words.builtin.>> cell.set
+  l[i64]
+  rt.pop.num  s.call
+  0           s.local.set
+  rt.pop.num  s.call
+  0           s.local.get
+              s.i64.shr_u
+  rt.push.num s.call
+object.func-end
+
+object.word words.builtin.not cell.set
+  l[]
+  rt.pop.num  s.call
+  -1          s.i64.const
+              s.i64.xor
+  rt.push.num s.call
+object.func-end
+
+object.word words.builtin.and cell.set
+  l[]
+  rt.pop.num  s.call
+  rt.pop.num  s.call
+              s.i64.and
+  rt.push.num s.call
+object.func-end
+
+object.word words.builtin.or cell.set
+  l[]
+  rt.pop.num  s.call
+  rt.pop.num  s.call
+              s.i64.or
+  rt.push.num s.call
+object.func-end
+
+object.word words.builtin.xor cell.set
+  l[]
+  rt.pop.num  s.call
+  rt.pop.num  s.call
+              s.i64.xor
+  rt.push.num s.call
+object.func-end
+
+object.word words.builtin.= cell.set
+  l[]
+  rt.pop.num   s.call
+  rt.pop.num   s.call
+               s.i64.eq
+  rt.push.bool s.call
+object.func-end
+
+object.word words.builtin.<> cell.set
+  l[]
+  rt.pop.num   s.call
+  rt.pop.num   s.call
+               s.i64.ne
+  rt.push.bool s.call
+object.func-end
+
+object.word words.builtin.< cell.set
+  l[]
+  rt.pop.num   s.call
+  rt.pop.num   s.call
+               s.i64.gt_u   \ reversed because the Wasm stack is backwards
+  rt.push.bool s.call
+object.func-end
+
+object.word words.builtin.> cell.set
+  l[]
+  rt.pop.num   s.call
+  rt.pop.num   s.call
+               s.i64.lt_u   \ reversed because the Wasm stack is backwards
+  rt.push.bool s.call
+object.func-end
+
+object.word words.builtin.<= cell.set
+  l[]
+  rt.pop.num   s.call
+  rt.pop.num   s.call
+               s.i64.ge_u   \ reversed because the Wasm stack is backwards
+  rt.push.bool s.call
+object.func-end
+
+object.word words.builtin.>= cell.set
+  l[]
+  rt.pop.num   s.call
+  rt.pop.num   s.call
+               s.i64.le_u   \ reversed because the Wasm stack is backwards
+  rt.push.bool s.call
+object.func-end
+
+object.word words.builtin.dup cell.set
+  l[]
+  0             s.i64.const
+  rt.load.stack s.call
+  rt.push       s.call
+object.func-end
+
+object.word words.builtin.drop cell.set
+  l[]
+  rt.pop s.call   s.drop   s.drop
+object.func-end
+
+object.word words.builtin.swap cell.set
+  l[]
+  0 s.i64.const   rt.load.stack  s.call
+  1 s.i64.const   rt.load.stack  s.call
+  0 s.i32.const   rt.store.stack s.call
+  1 s.i32.const   rt.store.stack s.call
+object.func-end
+
+object.word words.builtin.over cell.set
+  l[]
+  1             s.i64.const
+  rt.load.stack s.call
+  rt.push       s.call
+object.func-end
+
+object.word words.builtin.nip cell.set
+  l[]
+  rt.pop  s.call
+  rt.pop  s.call   s.drop s.drop
+  rt.push s.call
+object.func-end
+
+object.word words.builtin.tuck cell.set
+  l[]
+  \ TODO:   : tuck swap over ;
+  0 s.i64.const   rt.load.stack  s.call
+  1 s.i64.const   rt.load.stack  s.call
+  0 s.i64.const   rt.load.stack  s.call
+  1 s.i32.const   rt.store.stack s.call
+  0 s.i32.const   rt.store.stack s.call
+                  rt.push        s.call
+object.func-end
+
+object.word words.builtin.rot cell.set
+  l[]
+  0 s.i64.const   rt.load.stack  s.call
+  1 s.i64.const   rt.load.stack  s.call
+  2 s.i64.const   rt.load.stack  s.call
+  0 s.i32.const   rt.store.stack s.call
+  2 s.i32.const   rt.store.stack s.call
+  1 s.i32.const   rt.store.stack s.call
+object.func-end
+
+object.word words.builtin.-rot cell.set
+  l[]
+  0 s.i64.const   rt.load.stack  s.call
+  1 s.i64.const   rt.load.stack  s.call
+  2 s.i64.const   rt.load.stack  s.call
+  1 s.i32.const   rt.store.stack s.call
+  0 s.i32.const   rt.store.stack s.call
+  2 s.i32.const   rt.store.stack s.call
+object.func-end
+
+object.word words.builtin.pick cell.set
+  l[]
+  rt.pop.num    s.call
+  rt.load.stack s.call
+  rt.push       s.call
+object.func-end
+
+object.word words.builtin.fail cell.set
+  l[]
+  rt.pop.num  s.call
+              s.i32.wrap_i64
+  wasi.proc_exit s.call
+object.func-end
 
 object.word words.builtin.putc cell.set
   l[i64]
   s.block
     rt.pop.num s.call
-    0 s.local.tee
-    10 s.i64.const
-    s.i64.eq
-    0 s.br_if   \ c == '\n'
-    0 s.local.get
-    32 s.i64.const
-    s.i64.ge_u
-    0 s.local.get
+    0   s.local.tee
+    10  s.i64.const
+        s.i64.eq
+    0   s.br_if   \ c == '\n'
+    0   s.local.get
+    32  s.i64.const
+        s.i64.ge_u
+    0   s.local.get
     126 s.i64.const
-    s.i64.le_u
-    s.i32.and
-    0 s.br_if   \ (' ' <= c) && (c <= '~')
+        s.i64.le_u
+        s.i32.and
+    0   s.br_if   \ (' ' <= c) && (c <= '~')
     \ unprintable character
     0 10 114 101 116 99 97 114 97 104 99 32 101 108 98 97 116 110 105 114 112 110 117
     object.error
@@ -893,66 +865,71 @@ object.word words.builtin.putc cell.set
   0 s.i32.const   8 s.i32.const   0 s.i32.store
   4 s.i32.const   1 s.i32.const   0 s.i32.store
   8 s.i32.const   0 s.local.get   0 s.i64.store8
-  0 s.i32.const   rt.write   s.call
+  0 s.i32.const   rt.write s.call
 object.func-end
 
 object.word words.builtin.. cell.set
   l[i32,i64]
+  \ maximum number is 20 digits, which fits nicely into the scratch space
   31 s.i32.const
-  0  s.local.tee    \ addr = 31
+  0  s.local.tee     \ addr = 31
   32 s.i32.const
-  0  s.i32.store8   \ *addr = ' '
+  0  s.i32.store8    \ *addr = ' '
   rt.pop.num s.call
-  1 s.local.set     \ n = pop_num()
-  s.loop            \ do {...} while (n != 0)
-    0 s.local.get
-    1 s.i32.const
-    s.i32.sub
-    0 s.local.tee   \   addr -= 1
-    1 s.local.get
+  1  s.local.set     \ n = pop_num()
+  s.loop             \ do {...} while (n != 0)
+    0  s.local.get
+    1  s.i32.const
+       s.i32.sub
+    0  s.local.tee   \   addr -= 1
+    1  s.local.get
     10 s.i64.const
-    s.i64.rem_u
+       s.i64.rem_u
     48 s.i64.const
-    s.i64.add
-    0 s.i64.store8  \   *addr = '0' + (n % 10)
-    1 s.local.get
+       s.i64.add
+    0  s.i64.store8  \   *addr = '0' + (n % 10)
+    1  s.local.get
     10 s.i64.const
-    s.i64.div_u
-    1 s.local.tee   \   n = n / 10
-    0 s.i64.const
-    s.i64.ne
-    0 s.br_if
+       s.i64.div_u
+    1  s.local.tee   \   n = n / 10
+    0  s.i64.const
+       s.i64.ne
+    0  s.br_if
   s.end
-  0 s.i32.const
-  0 s.local.get
-  0 s.i32.store     \ *(0) = addr
-  4 s.i32.const
+  0  s.i32.const
+  0  s.local.get
+  0  s.i32.store     \ *(0) = addr
+  4  s.i32.const
   32 s.i32.const
-  0 s.local.get
-  s.i32.sub
-  0 s.i32.store     \ *(4) = len()
-  0 s.i32.const
+  0  s.local.get
+     s.i32.sub
+  0  s.i32.store     \ *(4) = len()
+  0  s.i32.const
   rt.write s.call
 object.func-end
 
-\ 
-\ 
-\ 
-\ \  emit.word.start words.builtin.bytes.new cell.set
-\ \    l[]
-\ \  emit.word.end
-\ \  emit.word.start words.builtin.bytes.clear cell.set
-\ \    l[]
-\ \  emit.word.end
-\ \  emit.word.start words.builtin.bytes.length cell.set
-\ \    l[]
-\ \  emit.word.end
-\ \  emit.word.start words.builtin.b% cell.set
-\ \    l[]
-\ \  emit.word.end
-\ \  emit.word.start words.builtin.b@ cell.set
-\ \    l[]
-\ \  emit.word.end
-\ \  emit.word.start words.builtin.b! cell.set
-\ \    l[]
-\ \  emit.word.end
+
+
+object.word words.builtin.bytes.new cell.set
+  l[]
+object.func-end
+
+object.word words.builtin.bytes.clear cell.set
+  l[]
+object.func-end
+
+object.word words.builtin.bytes.length cell.set
+  l[]
+object.func-end
+
+object.word words.builtin.b% cell.set
+  l[]
+object.func-end
+
+object.word words.builtin.b@ cell.set
+  l[]
+object.func-end
+
+object.word words.builtin.b! cell.set
+  l[]
+object.func-end
