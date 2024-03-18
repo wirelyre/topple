@@ -1,85 +1,102 @@
+\ emit-wasm-wasi.tpl
+\
+\ Implementation of 'emit' interface that produces WebAssembly modules.
+\
+\ This is pretty similar to the RISC-V emitter but better documented and easier
+\ to disassemble and debug.
+\
+\
+\
+\ # ABI
+\
+\ Values are stored in memory as:  [8 bytes data] [2 bytes type]
+\ And on the Wasm stack as:        i64 i32
+\
+\ Types are represented as:
+\    0 - uninitialized memory  (never occurs on stack)
+\    1 - pointer
+\    2 - number
+\    3 - byte array
+\    4-65535 - user types
+\
+\ The stack pointer is a global i32.
+\ The type of user-defined words is [] -> [] (no params, no results).
+\
+\
+\
+\ # Memory map
+\
+\      0 -     31 - scratch
+\     32 - 100031 - stack
+\ 100032 - 100159 - unused byte buffers
+\ 100160 - ?????? - compile-time allocations (strings, constants, variables)
+\ ?????? -        - run-time allocations
+\
+\ The stack grows downward.
+\ The stack pointer points directly to the top of the stack.
+\ This loads the top of the stack, if it exists:
+\    global.get $sp
+\    i64.load offset=0
+\
+\
+\
+\ # Module format
+\
+\ -  header
+\ -  types (of functions)
+\ -  imports (WASI)
+\ - *functions (list of functions)
+\ -  memories
+\ -  globals
+\ -  exports
+\ -  data count
+\ - *code (function bodies)
+\ - *data (strings, constants, variables)
+\
+\ Only the *starred sections vary based on the input program.
 
-\ TODO: check ALL errors: stack overflow misused; want \n probably
-\ TODO: memory needs to be big enough for data section?
-
-
-\ LEB128 encoding (unsigned and signed)
-\   b%u ( bytes n -- bytes )
-\   b%s ( bytes n -- bytes )
-
-: b%u
-  begin   dup 127 and over 7 >> 0 <> 128 and or
-          2 pick b%
-          7 >> dup
-  while repeat
-  drop ;
-
-: b%s
-  dup 63 >> if
-    begin   dup 6 >> 288230376151711743 <>   \ n more?
-            over 127 and over 128 and or     \ n more? next-byte
-            3 pick b%
-    while   7 >> 18302628885633695744 or   repeat
-  else
-    begin   dup 6 >> 0 <>                  \ n more?
-            over 127 and over 128 and or   \ n more? next-byte
-            3 pick b%
-    while   7 >>   repeat
-  then
-  drop ;
 
 
 
-: 0b%10   0 b%8 0 b%2 ;
+\ The binary has several sections open at once.
+\ Once each section is complete, it is copied into its parent.
+\ This is necessary because you need to know their byte lengths to encode them.
 
+bytes.new constant object.output
+  bytes.new constant object.sec.func
+  bytes.new constant object.sec.code
+    bytes.new constant object.sec.tmp   \ buffer for active function
+    bytes.new constant object.sec.main
+  bytes.new constant object.sec.data
 
+variable object.func-count   0 object.func-count!
 
-bytes.new constant object._output
-bytes.new constant object._sec.func
-bytes.new constant object._sec.code
-bytes.new constant object._sec.data
-bytes.new constant object._tmp
-bytes.new constant object._main
-
-variable object._funcidx   0 object._funcidx!
-: object._func object._funcidx@ dup 1 + object._funcidx! ;
-
-: object._data-addr object._sec.data bytes.length 100160 + ;
-
-: object._append-section
-  nip b%1
-  object._tmp bytes.length b%u
-  object._tmp bytes.append
-  object._tmp bytes.clear
+: object.func        object.func-count@ dup 1 + object.func-count! ;
+: object.data-addr   object.sec.data bytes.length 100160 + ;
+: object.append
+  2dup bytes.length b%u
+  2dup bytes.append
+  bytes.clear
 ;
 
-: object._finish-code
-  object._sec.code
-    object._tmp bytes.length b%u
-    object._tmp bytes.append
-    drop
-  object._tmp bytes.clear
-;
 
 
-
-: s.i32 127 b%1 ;
-: s.i64 126 b%1 ;
+\ WebAssembly instructions
 
 \ control instructions
-: s.unreachable   0 b%1          ;
-: s.nop           1 b%1          ;
-: s.block         2 b%1 64 b%1   ;
-: s.loop          3 b%1 64 b%1   ;
-: s.if            4 b%1 64 b%1   ;
-: s.else          5 b%1          ;
-: s.end          11 b%1          ;
-: s.br      swap 12 b%1 swap b%u ;
-: s.br_if   swap 13 b%1 swap b%u ;
-: s.br_table     14 b%1          ;
-: s.return       15 b%1          ;
-: s.call    swap 16 b%1 swap b%u ;
-: s.call_indirect rot 17 b%1 rot b%u swap b%u ;
+: s.unreachable          0 b%1          ;
+: s.nop                  1 b%1          ;
+: s.block                2 b%1 64   b%1 ;
+: s.loop                 3 b%1 64   b%1 ;
+: s.if                   4 b%1 64   b%1 ;
+: s.else                 5 b%1          ;
+: s.end                 11 b%1          ;
+: s.br             swap 12 b%1 swap b%u ;
+: s.br_if          swap 13 b%1 swap b%u ;
+: s.br_table            14 b%1          ;
+: s.return              15 b%1          ;
+: s.call           swap 16 b%1 swap b%u ;
+: s.call_indirect   rot 17 b%1 rot  b%u swap b%u ;
 
 \ reference instructions
 : s.ref.null   swap 208 b%1 swap b%u ;
@@ -101,38 +118,28 @@ variable object._funcidx   0 object._funcidx!
 \ table instructions
 : s.table.get     swap 37 b%1 swap b%u ;
 : s.table.set     swap 38 b%1 swap b%u ;
-: s.table.init    rot 252 b%1 12 b%u swap b%u swap b%u ;
-: s.elem.drop    swap 252 b%1 13 b%u swap b%u          ;
-: s.table.copy    rot 252 b%1 14 b%u rot b%u swap b%u  ;
-: s.table.grow   swap 252 b%1 15 b%u swap b%u          ;
-: s.table.size   swap 252 b%1 16 b%u swap b%u          ;
-: s.table.fill   swap 252 b%1 17 b%u swap b%u          ;
+: s.table.init    rot 252 b%1 12   b%u swap b%u swap b%u ;
+: s.elem.drop    swap 252 b%1 13   b%u swap b%u          ;
+: s.table.copy    rot 252 b%1 14   b%u rot  b%u swap b%u ;
+: s.table.grow   swap 252 b%1 15   b%u swap b%u          ;
+: s.table.size   swap 252 b%1 16   b%u swap b%u          ;
+: s.table.fill   swap 252 b%1 17   b%u swap b%u          ;
 
 \ memory instructions (alignment 0)
 : s._mem   rot swap b%1 0 b%u swap b%u ;
-: s.i32.load       40 s._mem ;
-: s.i64.load       41 s._mem ;
-: s.f32.load       42 s._mem ;
-: s.f64.load       43 s._mem ;
-: s.i32.load8_s    44 s._mem ;
-: s.i32.load8_u    45 s._mem ;
-: s.i32.load16_s   46 s._mem ;
-: s.i32.load16_u   47 s._mem ;
-: s.i64.load8_s    48 s._mem ;
-: s.i64.load8_u    49 s._mem ;
-: s.i64.load16_s   50 s._mem ;
-: s.i64.load16_u   51 s._mem ;
-: s.i64.load32_s   52 s._mem ;
-: s.i64.load32_u   53 s._mem ;
-: s.i32.store      54 s._mem ;
-: s.i64.store      55 s._mem ;
-: s.f32.store      56 s._mem ;
-: s.f64.store      57 s._mem ;
-: s.i32.store8     58 s._mem ;
-: s.i32.store16    59 s._mem ;
-: s.i64.store8     60 s._mem ;
-: s.i64.store16    61 s._mem ;
-: s.i64.store32    62 s._mem ;
+: s.i32.load       40 s._mem ;   : s.i64.load       41 s._mem ;
+: s.f32.load       42 s._mem ;   : s.f64.load       43 s._mem ;
+: s.i32.load8_s    44 s._mem ;   : s.i64.load8_s    48 s._mem ;
+: s.i32.load8_u    45 s._mem ;   : s.i64.load8_u    49 s._mem ;
+: s.i32.load16_s   46 s._mem ;   : s.i64.load16_s   50 s._mem ;
+: s.i32.load16_u   47 s._mem ;   : s.i64.load16_u   51 s._mem ;
+                                 : s.i64.load32_s   52 s._mem ;
+                                 : s.i64.load32_u   53 s._mem ;
+: s.i32.store      54 s._mem ;   : s.i64.store      55 s._mem ;
+: s.f32.store      56 s._mem ;   : s.f64.store      57 s._mem ;
+: s.i32.store8     58 s._mem ;   : s.i64.store8     60 s._mem ;
+: s.i32.store16    59 s._mem ;   : s.i64.store16    61 s._mem ;
+                                 : s.i64.store32    62 s._mem ;
 : s.memory.size    63 b%1 0 b%1 ;
 : s.memory.grow    64 b%1 0 b%1 ;
 : s.memory.init   swap 252 b%1  8 b%u swap b%u 0 b%1 ;
@@ -181,8 +188,70 @@ variable object._funcidx   0 object._funcidx!
 : s.i64.extend16_s     195 b%1 ;
 : s.i64.extend32_s     196 b%1 ;
 
-\ vector instructions
-\ v128.load - f64x2.promote_low_f32x4
+
+
+\ Random WebAssembly encodings
+
+\ types
+: s.i32 127 b%1 ;
+: s.i64 126 b%1 ;
+
+\ local signatures
+: l[]        0 b%u ;
+: l[i32]     1 b%u 1 b%u s.i32 ;
+: l[i64]     1 b%u 1 b%u s.i64 ;
+: l[i32,i64] 2 b%u 1 b%u s.i32 1 b%u s.i64 ;
+
+
+
+
+\ TODO: check ALL errors: stack overflow misused; want \n probably
+\ TODO: memory needs to be big enough for data section?
+
+
+
+
+
+
+
+
+
+bytes.new constant object._output
+bytes.new constant object._sec.func
+bytes.new constant object._sec.code
+bytes.new constant object._sec.data
+bytes.new constant object._tmp
+bytes.new constant object._main
+
+variable object._funcidx   0 object._funcidx!
+: object._func object._funcidx@ dup 1 + object._funcidx! ;
+
+: object._data-addr object._sec.data bytes.length 100160 + ;
+
+: object._append-section
+  nip b%1
+  object._tmp bytes.length b%u
+  object._tmp bytes.append
+  object._tmp bytes.clear
+;
+
+: object._finish-code
+  object._sec.code
+    object._tmp bytes.length b%u
+    object._tmp bytes.append
+    drop
+  object._tmp bytes.clear
+;
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -229,10 +298,6 @@ object._output
     96 b%1 1 b%u s.i32             2 b%u s.i64 s.i32 11 constant [i32]->[i64,i32]
     1 object._append-section
 
-: l[]        0 b%u ;
-: l[i32]     1 b%u 1 b%u s.i32 ;
-: l[i64]     1 b%u 1 b%u s.i64 ;
-: l[i32,i64] 2 b%u 1 b%u s.i32 1 b%u s.i64 ;
 
 \ import section
     2 constant object._import-count

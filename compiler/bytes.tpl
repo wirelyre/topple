@@ -9,9 +9,16 @@
 \   b%2 ( bytes n -- bytes )
 \   b%4 ( bytes n -- bytes )
 \   b%8 ( bytes n -- bytes )
+
+\   0b%10 ( bytes -- bytes )
 \
 \   b!2 ( n idx bytes -- )
 \   b!4 ( n idx bytes -- )
+\
+\ LEB128 encoding:
+\
+\   b%u ( bytes n -- bytes )
+\   b%s ( bytes n -- bytes )
 
 : bytes.dump
   0
@@ -67,6 +74,18 @@
   2dup swap b% drop
 ;
 
+: 0b%10
+  0 over b%
+  0 over b%
+  0 over b%
+  0 over b%
+  0 over b%
+  0 over b%
+  0 over b%
+  0 over b%
+  0 over b%
+  0 over b% ;
+
 : b!2
   2 pick  8 >> 255 and   2 pick 1 +   2 pick b!
   rot 255 and -rot   b!
@@ -77,4 +96,27 @@
   2 pick 16 >> 255 and   2 pick 2 +   2 pick b!
   2 pick  8 >> 255 and   2 pick 1 +   2 pick b!
   rot 255 and -rot   b!
+;
+
+: b%u
+  begin   dup 127 and over 7 >> 0 <> 128 and or
+          2 pick b%
+          7 >> dup
+  while repeat
+  drop
+;
+
+: b%s
+  dup 63 >> if
+    begin   dup 6 >> 288230376151711743 <>
+            over 127 and over 128 and or
+            3 pick b%
+    while   7 >> 18302628885633695744 or   repeat
+  else
+    begin   dup 6 >> 0 <>
+            over 127 and over 128 and or
+            3 pick b%
+    while   7 >>   repeat
+  then
+  drop
 ;
