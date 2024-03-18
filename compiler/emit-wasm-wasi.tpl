@@ -1,5 +1,5 @@
 \ TODO: check ALL errors: stack overflow misused; want \n probably
-\ TODO: memory needs to be big enough for data section?
+\ TODO: check all words (even those not tested)
 
 
 
@@ -494,11 +494,11 @@ object.func-end
         object.sec.func bytes.append
       object.append
 
-    \ (memory 4)
+    \ (memory ...)
       5 b%1
       object.sec.tmp
         1 b%u
-        0 b%1 4 b%u \ TODO
+        0 b%1 object.data-addr 65535 + 16 >> b%u
       object.append
 
     \ (global $sp (mut i32) (i32.const 100032))
