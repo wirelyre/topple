@@ -12,11 +12,15 @@
 \ This is pretty similar to the RISC-V emitter but better documented and easier
 \ to disassemble and debug.
 \
+\ There are no padding bytes.  The notation
+\    [field1]:1 [field2]:4
+\ represents a structure that is exactly 5 bytes.
+\
 \
 \
 \ # ABI
 \
-\ Values are stored in memory as:  [8 bytes data] [2 bytes type]
+\ Values are stored in memory as:  [data]:8 [type]:2
 \ And on the Wasm stack as:        i64 i32
 \
 \ Types are represented as:
@@ -35,8 +39,8 @@
 \
 \      0 -     31 - scratch
 \     32 - 100031 - stack
-\ 100032 - 100159 - unused byte buffers
-\ 100160 - ?????? - compile-time allocations (strings, constants, variables)
+\ 100032 - 100099 - free byte buffers
+\ 100100 - ?????? - compile-time allocations (strings, constants, variables)
 \ ?????? -        - run-time allocations
 \
 \ The stack grows downward.
@@ -67,7 +71,30 @@
 \ # Blocks
 \
 \ Blocks are 4096-byte aligned.
-
+\
+\
+\
+\ # Byte arrays
+\
+\    value:     [&pointer]:8 [3]:2
+\    pointer:   [&buffer]:4
+\    buffer:    [size_class]:1 [length]:4 [data]:capacity
+\
+\ Byte arrays allocate new buffers as needed.
+\ They have a stable address which points to the current buffer.
+\
+\ The 'size_class' field represents the size of the buffer:
+\    capacity + 5 == 2 << (size_class + 16)
+\
+\ The minimum allocation is one WebAssembly page, or 64 KiB, where:
+\    size_capacity == 0
+\
+\ Free buffers are stored in linked lists at address 100032.
+\ There are 16 lists, one for each possible buffer size.
+\
+\ (There's actually space for 17 lists to ensure a trap at 4 GiB.
+\  I'm pretty sure it can't even get to 2 GiB but I don't want to figure it out.
+\  Plus, it puts the data segment at address 100100, which I like.)
 
 
 
@@ -85,7 +112,7 @@ bytes.new constant object.output
 variable object.func-count   0 object.func-count!
 
 : object.func        object.func-count@ dup 1 + object.func-count! ;
-: object.data-addr   object.sec.data bytes.length 100160 + ;
+: object.data-addr   object.sec.data bytes.length 100100 + ;
 : object.append
   2dup bytes.length b%u drop
   2dup bytes.append drop
@@ -210,11 +237,13 @@ variable object.func-count   0 object.func-count!
 : s.i64 126 b%1 ;
 
 \ local signatures
-: l[]        0 b%u ;
-: l[i32]     1 b%u 1 b%u s.i32 ;
-: l[i64]     1 b%u 1 b%u s.i64 ;
-: l[i64,i64] 1 b%u 2 b%u s.i64 ;
-: l[i32,i64] 2 b%u 1 b%u s.i32 1 b%u s.i64 ;
+: l[]                0 b%u ;
+: l[i32]             1 b%u 1 b%u s.i32 ;
+: l[i64]             1 b%u 1 b%u s.i64 ;
+: l[i32,i32]         1 b%u 2 b%u s.i32 ;
+: l[i32,i32,i32,i32] 1 b%u 4 b%u s.i32 ;
+: l[i64,i64]         1 b%u 2 b%u s.i64 ;
+: l[i32,i64]         2 b%u 1 b%u s.i32 1 b%u s.i64 ;
 
 
 
@@ -258,7 +287,7 @@ object.output
   \ types
   1 b%1
   object.sec.tmp
-    15 b%u
+    17 b%u
     96 b%1 0 b%u                   0 b%u              0 constant []->[]
     96 b%1 1 b%u s.i64             2 b%u s.i64 s.i32  1 constant [i64]->[i64,i32]
     96 b%1 3 b%u s.i64 s.i32 s.i64 0 b%u              2 constant [i64,i32,i64]->[]
@@ -274,6 +303,8 @@ object.output
     96 b%1 1 b%u s.i32             1 b%u s.i32       12 constant [i32]->[i32]
     96 b%1 3 b%u s.i32 s.i64 s.i32 0 b%u             13 constant [i32,i64,i32]->[]
     96 b%1 1 b%u s.i32             1 b%u s.i64       14 constant [i32]->[i64]
+    96 b%1 2 b%u s.i32 s.i64       1 b%u s.i32       15 constant [i32,i64]->[i32]
+    96 b%1 2 b%u s.i32 s.i32       0 b%u             16 constant [i32,i32]->[]
   object.append
 
   \ imports
@@ -301,6 +332,7 @@ drop
 
 0 constant rt.sp
 1 constant rt.alloc.block-next
+2 constant rt.alloc.bytes-next
 
 
 
@@ -462,6 +494,19 @@ constant rt.pop.num
   s.end
 object.func-end
 
+[]->[i32] object.func-start
+constant rt.pop.bytes
+  l[]
+  rt.pop s.call
+  3 s.i32.const
+  s.i32.ne
+  s.if
+    \ expected bytes
+    0 10 115 101 116 121 98 32 100 101 116 99 101 112 120 101 object.error
+  s.end
+  s.i32.wrap_i64
+object.func-end
+
 [i32]->[i64] object.func-start
 constant rt.pop.user
   l[]
@@ -544,6 +589,168 @@ object.func-end
 
 
 
+
+\ [size]:1 [len]:4  [data]
+\ [size]:1 [next]:4 [garbage]
+\ 100032 - 100099 - free byte buffers
+
+[i32]->[i32] object.func-start   \ param: size class
+constant rt.alloc.buffer
+  l[i32,i32]
+  0      s.local.get
+  2      s.i32.const
+         s.i32.shl
+  100032 s.i32.const
+         s.i32.add
+  1      s.local.tee \ linked list of correct-size buffers
+  0      s.i32.load
+  2      s.local.tee \ buffer to return
+  s.i32.eqz
+  s.if
+    1 s.i32.const
+    0 s.local.get
+      s.i32.shl      \ number of pages to allocate
+    rt.alloc.pages s.call
+    2 s.local.tee    \ buffer to return
+    0 s.local.get
+    0 s.i32.store8   \ initialize size class
+  s.end
+  1 s.local.get
+  2 s.local.get
+  1 s.i32.load
+  0 s.i32.store      \ unlink from free list
+  2 s.local.get
+object.func-end
+
+[i32]->[] object.func-start   \ param: (buffer *)
+constant rt.free.buffer
+  l[i32]
+  0      s.local.get   \ @1
+  0      s.local.get
+  0      s.i32.load8_u
+  2      s.i32.const
+         s.i32.shl
+  100032 s.i32.const
+         s.i32.add
+  1      s.local.tee   \ linked list
+  0      s.i32.load
+  1      s.i32.store   \ save old head at @1
+  1      s.local.get
+  0      s.local.get
+  0      s.i32.store
+object.func-end
+
+[]->[i32] object.func-start
+constant rt.alloc.bytes
+  l[i32]
+  rt.alloc.bytes-next s.global.get
+  0 s.local.tee                      \ space for pointer
+  65535 s.i32.const
+        s.i32.and
+        s.i32.eqz
+  s.if
+    1 s.i32.const
+    rt.alloc.pages s.call
+    0 s.local.set
+  s.end
+  0 s.local.get
+  4 s.i32.const
+    s.i32.add
+  rt.alloc.bytes-next s.global.set   \ next += 4
+  0 s.local.get
+  0 s.i32.const
+  rt.alloc.buffer s.call             \ alloc smallest buffer
+  0 s.i32.store
+  0 s.local.get
+object.func-end
+
+[i32]->[i32] object.func-start
+constant rt.buffer-capacity
+  l[]
+  1 s.i32.const
+  0 s.local.get
+  0 s.i32.load8_u
+  16 s.i32.const
+  s.i32.add
+  s.i32.shl
+  5 s.i32.const
+  s.i32.sub
+object.func-end
+
+[i32,i64]->[i32] object.func-start
+constant rt.buffer-offset
+  l[]
+  0 s.local.get
+  1 s.i32.load
+  s.i64.extend_i32_u \ len
+  1 s.local.get
+  s.i64.le_u
+  s.if
+    \ bytes index out of bounds
+    0 10 115 100 110 117 111 98 32 102 111 32 116 117 111 32 120 101 100 110 105
+    32 115 101 116 121 98 object.error
+  s.end
+  0 s.local.get
+  1 s.local.get
+  s.i32.wrap_i64
+  s.i32.add
+  5 s.i32.const
+  s.i32.add
+object.func-end
+
+
+
+\ \ DUMP-MEM : [addr, len] -> []
+\ 
+\ [i32]->[i32] object.func-start
+\ constant HALF-BYTE
+\   l[] 0 s.local.get 15 s.i32.const s.i32.and 0 s.local.tee 48 s.i32.const
+\   55 s.i32.const 0 s.local.get 10 s.i32.const s.i32.lt_u s.select s.i32.add
+\ object.func-end
+\ 
+\ [i32]->[i32] object.func-start
+\ constant BYTE
+\   l[]
+\   0 s.local.get HALF-BYTE s.call 8 s.i32.const s.i32.shl
+\   0 s.local.get 4 s.i32.const s.i32.shr_u HALF-BYTE s.call
+\   s.i32.or
+\ object.func-end
+\ 
+\ [i32,i32]->[] object.func-start
+\ constant DUMP-MEM
+\   l[i32,i32]
+\   4 s.i32.const   12 s.i32.const   0 s.i32.store
+\   8 s.i32.const    3 s.i32.const   0 s.i32.store
+\   s.loop
+\     12 s.i32.const
+\     0 s.local.get
+\     2 s.local.get
+\     s.i32.add
+\     0 s.i32.load8_u
+\     BYTE s.call
+\     0 s.i32.store16
+\     14 s.i32.const
+\       32 s.i32.const
+\       10 s.i32.const
+\         2 s.local.get
+\         1 s.i32.const
+\         s.i32.add
+\         2 s.local.tee
+\         15 s.i32.const
+\         s.i32.and
+\       s.select
+\       0 s.i32.store8
+\     4 s.i32.const
+\     rt.write s.call
+\     1 s.local.get
+\     2 s.local.get
+\     s.i32.gt_u
+\     0 s.br_if
+\   s.end
+\ object.func-end
+
+
+
 \ 'emit' interface
 
 : object.init
@@ -577,10 +784,12 @@ object.func-end
 
     \ (global $sp (mut i32) (i32.const 100032))
     \ (global $rt.alloc.block-next (mut i32) (i32.const 0))
+    \ (global $rt.alloc.bytes-next (mut i32) (i32.const 0))
       6 b%1
       object.sec.tmp
-        2 b%u
+        3 b%u
         s.i32 1 b%1 100032 s.i32.const s.end
+        s.i32 1 b%1      0 s.i32.const s.end
         s.i32 1 b%1      0 s.i32.const s.end
       object.append
 
@@ -606,11 +815,11 @@ object.func-end
         object.sec.code bytes.append
       object.append
 
-    \ (data (i32.const 100160) ...)
+    \ (data (i32.const 100100) ...)
       11 b%1
       object.sec.tmp
         1 b%u
-        0 b%1 100160 s.i32.const s.end
+        0 b%1 100100 s.i32.const s.end
         object.sec.data bytes.length b%u
         object.sec.data bytes.append
       object.append
@@ -1059,24 +1268,83 @@ object.func-end
 
 object.word words.builtin.bytes.new cell.set
   l[]
+  rt.alloc.bytes s.call
+                 s.i64.extend_i32_u
+  3              s.i32.const
+  rt.push        s.call
 object.func-end
 
 object.word words.builtin.bytes.clear cell.set
-  l[]
+  l[i32]
+  rt.pop.bytes s.call
+  0 s.i32.load
+  0 s.i32.const
+  1 s.i32.store
 object.func-end
 
 object.word words.builtin.bytes.length cell.set
   l[]
+  rt.pop.bytes s.call
+  0            s.i32.load
+  1            s.i64.load32_u
+  rt.push.num  s.call
 object.func-end
 
 object.word words.builtin.b% cell.set
-  l[]
+  l[i32,i32,i32,i32]
+  rt.pop.bytes s.call
+  0 s.local.tee   \ bytes
+  0 s.i32.load
+  1 s.local.tee   \ buffer
+  rt.buffer-capacity s.call
+  1 s.local.get
+  1 s.i32.load
+  2 s.local.tee   \ current len
+  s.i32.eq
+  s.if            \ at capacity
+    1 s.local.get
+    0 s.i32.load8_u
+    1 s.i32.const
+      s.i32.add   \ new size class
+    rt.alloc.buffer s.call
+    3 s.local.tee    1 s.i32.const    s.i32.add \ dest
+    1 s.local.get    1 s.i32.const    s.i32.add \ src
+    2 s.local.get    4 s.i32.const    s.i32.add \ len
+    s.memory.copy
+    1 s.local.get    rt.free.buffer s.call
+    0 s.local.get
+    3 s.local.get
+    1 s.local.tee \ buffer to modify
+    0 s.i32.store \ update pointer
+  s.end
+  1 s.local.get
+  2 s.local.get
+    s.i32.add
+  rt.pop.num s.call
+  5 s.i64.store8  \ store byte
+  1 s.local.get
+  2 s.local.get
+  1 s.i32.const
+    s.i32.add
+  1 s.i32.store   \ increment length
 object.func-end
 
 object.word words.builtin.b@ cell.set
-  l[]
+  l[i32,i64]
+  rt.pop.bytes     s.call
+  0                s.i32.load
+  rt.pop.num       s.call
+  rt.buffer-offset s.call
+  0                s.i64.load8_u
+  rt.push.num      s.call
 object.func-end
 
 object.word words.builtin.b! cell.set
   l[]
+  rt.pop.bytes     s.call
+  0                s.i32.load
+  rt.pop.num       s.call
+  rt.buffer-offset s.call
+  rt.pop.num       s.call
+  0                s.i64.store8
 object.func-end

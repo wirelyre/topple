@@ -1,14 +1,20 @@
-block.new constant mem
+: nl "\n" ;
 
-type a
-type b
+bytes.new constant b
 
-mem >a   \ stack: a
-<a       \ stack: ptr
-drop
+b bytes.length .   \ 0
+1 b b%
+b bytes.length .   \ 1
+b bytes.clear
+b bytes.length .   \ 0
 
-mem >b   \ stack: b
-<b       \ stack: ptr
-drop
+: fill
+  0 begin dup 65536 < while
+    dup b b%
+  1 + repeat drop
+;
+fill
 
-mem >a <b   \ illegal
+b bytes.length .   \ 65536
+
+nl
