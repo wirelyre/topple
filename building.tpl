@@ -1,12 +1,14 @@
+block.new constant mem
 
-1 2 - .
+type a
+type b
 
-10 putc
+mem >a   \ stack: a
+<a       \ stack: ptr
+drop
 
-\ : nl "\n" ;
-\ 
-\ variable my_var
-\ 
-\ 1 my_var!
-\ my_var@ .
-\ nl
+mem >b   \ stack: b
+<b       \ stack: ptr
+drop
+
+mem >a <b   \ illegal

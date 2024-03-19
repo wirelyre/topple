@@ -258,7 +258,7 @@ object.output
   \ types
   1 b%1
   object.sec.tmp
-    14 b%u
+    15 b%u
     96 b%1 0 b%u                   0 b%u              0 constant []->[]
     96 b%1 1 b%u s.i64             2 b%u s.i64 s.i32  1 constant [i64]->[i64,i32]
     96 b%1 3 b%u s.i64 s.i32 s.i64 0 b%u              2 constant [i64,i32,i64]->[]
@@ -273,6 +273,7 @@ object.output
     96 b%1 1 b%u s.i32             2 b%u s.i64 s.i32 11 constant [i32]->[i64,i32]
     96 b%1 1 b%u s.i32             1 b%u s.i32       12 constant [i32]->[i32]
     96 b%1 3 b%u s.i32 s.i64 s.i32 0 b%u             13 constant [i32,i64,i32]->[]
+    96 b%1 1 b%u s.i32             1 b%u s.i64       14 constant [i32]->[i64]
   object.append
 
   \ imports
@@ -461,6 +462,18 @@ constant rt.pop.num
   s.end
 object.func-end
 
+[i32]->[i64] object.func-start
+constant rt.pop.user
+  l[]
+  rt.pop s.call
+  0 s.local.get
+  s.i32.ne
+  s.if
+    \ wrong user type
+    0 10 101 112 121 116 32 114 101 115 117 32 103 110 111 114 119 object.error
+  s.end
+object.func-end
+
 []->[i32] object.func-start
 constant rt.pop.bool
   l[]
@@ -618,7 +631,26 @@ object.func-end
 : emit.main.number object.sec.main swap s.i64.const rt.push.num s.call drop ;
 : emit.word.number object.sec.tmp  swap s.i64.const rt.push.num s.call drop ;
 
-: emit.type     "type: " . "\n" 0 0 ;
+: emit.type
+  4 +
+  dup 65535 > if "too many types\n" 15 fail then
+
+  []->[] object.func-start -rot   \ opener
+    l[]
+    3 pick      s.i32.const
+    rt.pop.user s.call
+    1           s.i32.const
+    rt.push     s.call
+  object.func-end swap
+
+  []->[] object.func-start -rot   \ closer
+    l[]
+    rt.pop.ptr s.call
+               s.i64.extend_i32_u
+    3 pick     s.i32.const
+    rt.push    s.call
+  object.func-end nip
+;
 
 : emit.constant
   []->[] object.func-start -rot
