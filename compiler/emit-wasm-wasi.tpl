@@ -1,4 +1,4 @@
-\ TODO: check ALL errors: stack overflow misused; want \n probably
+\ TODO: check ALL errors: want \n probably
 \ TODO: check all words (even those not tested)
 
 
@@ -61,6 +61,12 @@
 \ - *data (strings, constants, variables)
 \
 \ Only the *starred sections vary based on the input program.
+\
+\
+\
+\ # Blocks
+\
+\ Blocks are 4096-byte aligned.
 
 
 
@@ -207,6 +213,7 @@ variable object.func-count   0 object.func-count!
 : l[]        0 b%u ;
 : l[i32]     1 b%u 1 b%u s.i32 ;
 : l[i64]     1 b%u 1 b%u s.i64 ;
+: l[i64,i64] 1 b%u 2 b%u s.i64 ;
 : l[i32,i64] 2 b%u 1 b%u s.i32 1 b%u s.i64 ;
 
 
@@ -251,7 +258,7 @@ object.output
   \ types
   1 b%1
   object.sec.tmp
-    12 b%u
+    14 b%u
     96 b%1 0 b%u                   0 b%u              0 constant []->[]
     96 b%1 1 b%u s.i64             2 b%u s.i64 s.i32  1 constant [i64]->[i64,i32]
     96 b%1 3 b%u s.i64 s.i32 s.i64 0 b%u              2 constant [i64,i32,i64]->[]
@@ -264,6 +271,8 @@ object.output
     96 b%1 0 b%u                   1 b%u s.i64        9 constant []->[i64]
     96 b%1 3 b%u s.i64 s.i32 s.i32 0 b%u             10 constant [i64,i32,i32]->[]
     96 b%1 1 b%u s.i32             2 b%u s.i64 s.i32 11 constant [i32]->[i64,i32]
+    96 b%1 1 b%u s.i32             1 b%u s.i32       12 constant [i32]->[i32]
+    96 b%1 3 b%u s.i32 s.i64 s.i32 0 b%u             13 constant [i32,i64,i32]->[]
   object.append
 
   \ imports
@@ -290,6 +299,7 @@ object.output
 drop
 
 0 constant rt.sp
+1 constant rt.alloc.block-next
 
 
 
@@ -425,6 +435,20 @@ constant rt.pop
   rt.sp         s.global.set
 object.func-end
 
+[]->[i32] object.func-start
+constant rt.pop.ptr
+  l[]
+  rt.pop s.call
+  1 s.i32.const
+  s.i32.ne
+  s.if
+    \ expected pointer
+    0 10 114 101 116 110 105 111 112 32 100 101 116 99 101 112 120 101
+    object.error
+  s.end
+  s.i32.wrap_i64
+object.func-end
+
 []->[i64] object.func-start
 constant rt.pop.num
   l[]
@@ -461,11 +485,48 @@ constant rt.load.mem
   0 s.local.get
 object.func-end
 
-[i64,i32,i32]->[] object.func-start
+[i32,i64,i32]->[] object.func-start
 constant rt.store.mem
   l[]
-  2 s.local.get   0 s.local.get   0 s.i64.store
-  2 s.local.get   1 s.local.get   8 s.i32.store16
+  0 s.local.get   1 s.local.get   0 s.i64.store
+  0 s.local.get   2 s.local.get   8 s.i32.store16
+object.func-end
+
+[i32]->[i32] object.func-start
+constant rt.alloc.pages
+  l[]
+  0  s.local.get
+     s.memory.grow
+  0  s.local.tee
+  -1 s.i32.const
+     s.i32.eq
+  s.if
+    \ out of memory
+    0 10 121 114 111 109 101 109 32 102 111 32 116 117 111 object.error
+  s.end
+  0  s.local.get
+  16 s.i32.const
+     s.i32.shl
+object.func-end
+
+[]->[i32] object.func-start
+constant rt.alloc.block
+  l[]
+  rt.alloc.block-next s.global.get
+  65535 s.i32.const
+        s.i32.and
+        s.i32.eqz
+  s.if
+    \ need to allocate
+    1 s.i32.const
+    rt.alloc.pages s.call
+    rt.alloc.block-next s.global.set
+  s.end
+  rt.alloc.block-next s.global.get
+  rt.alloc.block-next s.global.get
+  4096 s.i32.const
+       s.i32.add
+  rt.alloc.block-next s.global.set
 object.func-end
 
 
@@ -502,10 +563,12 @@ object.func-end
       object.append
 
     \ (global $sp (mut i32) (i32.const 100032))
+    \ (global $rt.alloc.block-next (mut i32) (i32.const 0))
       6 b%1
       object.sec.tmp
-        1 b%u
+        2 b%u
         s.i32 1 b%1 100032 s.i32.const s.end
+        s.i32 1 b%1      0 s.i32.const s.end
       object.append
 
     \ (export "memory" (memory 0))
@@ -566,8 +629,8 @@ object.func-end
   object.func-end
 
   object.sec.main
-    rt.pop s.call
     object.data-addr s.i32.const
+    rt.pop s.call
     rt.store.mem s.call
   drop
 
@@ -584,8 +647,8 @@ object.func-end
 
   []->[] object.func-start -rot
     l[]
-    rt.pop s.call
     object.data-addr s.i32.const
+    rt.pop s.call
     rt.store.mem s.call
   object.func-end
 
@@ -906,6 +969,58 @@ object.word words.builtin.. cell.set
   0  s.i32.store     \ *(4) = len()
   0  s.i32.const
   rt.write s.call
+object.func-end
+
+
+
+object.word words.builtin.block.new cell.set
+  l[]
+  rt.alloc.block s.call
+  s.i64.extend_i32_u
+  1 s.i32.const
+  rt.push s.call
+object.func-end
+
+object.word words.builtin.@ cell.set
+  l[]
+  rt.pop.ptr  s.call
+  rt.load.mem s.call
+  rt.push     s.call
+object.func-end
+
+object.word words.builtin.! cell.set
+  l[]
+  rt.pop.ptr   s.call
+  rt.pop       s.call
+  rt.store.mem s.call
+object.func-end
+
+object.word words.builtin.+p cell.set
+  l[i64,i64]
+  rt.pop.num s.call
+  0          s.local.tee
+  rt.pop.ptr s.call
+             s.i64.extend_i32_u
+  1          s.local.tee
+  4095 s.i64.const
+       s.i64.and
+  10   s.i64.const
+       s.i64.div_u \ current offset
+       s.i64.add   \ new offset
+  400  s.i64.const
+  s.i64.ge_u
+  s.if
+    \ pointer out of bounds
+    0 10 115 100 110 117 111 98 32 102 111 32 116 117 111 32 114 101 116 110 105
+    111 112 object.error
+  s.end
+  0  s.local.get
+  10 s.i64.const
+     s.i64.mul
+  1  s.local.get
+     s.i64.add
+  1  s.i32.const
+  rt.push s.call
 object.func-end
 
 
