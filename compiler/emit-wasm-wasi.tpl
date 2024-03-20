@@ -1,17 +1,12 @@
 \ TODO: check ALL errors: want \n probably
 \ TODO: check all words (even those not tested)
 
-\ file.read
-\
-\    1. find file descriptor for cwd
-\    2. error if can't find it
-\    3. save it somewhere
-\    4. rest of the owl
+\ cwd []->[fd:i32]
+\ open [bytes:i32, o_flags:i32, fd_rights:i64]->[fd:i32]
+\ len [fd:i32]->[len:i32] (error for file too long)
 
-\ file.write
-\
-\    similar
-
+\ read (word) - open, len, alloc, do read, close, update bytes len
+\ write (word) - open, do write, close
 
 
 
