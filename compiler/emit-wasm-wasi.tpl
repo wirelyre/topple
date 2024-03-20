@@ -1,6 +1,17 @@
 \ TODO: check ALL errors: want \n probably
 \ TODO: check all words (even those not tested)
 
+\ file.read
+\
+\    1. find file descriptor for cwd
+\    2. error if can't find it
+\    3. save it somewhere
+\    4. rest of the owl
+
+\ file.write
+\
+\    similar
+
 
 
 
@@ -241,6 +252,7 @@ variable object.func-count   0 object.func-count!
 : l[i32]             1 b%u 1 b%u s.i32 ;
 : l[i64]             1 b%u 1 b%u s.i64 ;
 : l[i32,i32]         1 b%u 2 b%u s.i32 ;
+: l[i32,i32,i32]     1 b%u 3 b%u s.i32 ;
 : l[i32,i32,i32,i32] 1 b%u 4 b%u s.i32 ;
 : l[i64,i64]         1 b%u 2 b%u s.i64 ;
 : l[i32,i64]         2 b%u 1 b%u s.i32 1 b%u s.i64 ;
@@ -287,7 +299,7 @@ object.output
   \ types
   1 b%1
   object.sec.tmp
-    18 b%u
+    19 b%u
     96 b%1 0 b%u                   0 b%u              0 constant []->[]
     96 b%1 1 b%u s.i64             2 b%u s.i64 s.i32  1 constant [i64]->[i64,i32]
     96 b%1 3 b%u s.i64 s.i32 s.i64 0 b%u              2 constant [i64,i32,i64]->[]
@@ -306,6 +318,7 @@ object.output
     96 b%1 2 b%u s.i32 s.i64       1 b%u s.i32       15 constant [i32,i64]->[i32]
     96 b%1 2 b%u s.i32 s.i32       0 b%u             16 constant [i32,i32]->[]
     96 b%1 2 b%u s.i32 s.i32       1 b%u s.i32       17 constant [i32,i32]->[i32]
+    96 b%1 2 b%u s.i32 s.i64       0 b%u             18 constant [i32,i64]->[]
   object.append
 
   \ imports
@@ -676,19 +689,6 @@ constant rt.alloc.bytes
   0 s.local.get
 object.func-end
 
-[i32]->[i32] object.func-start
-constant rt.buffer-capacity
-  l[]
-  1 s.i32.const
-  0 s.local.get
-  0 s.i32.load8_u
-  16 s.i32.const
-  s.i32.add
-  s.i32.shl
-  5 s.i32.const
-  s.i32.sub
-object.func-end
-
 [i32,i64]->[i32] object.func-start
 constant rt.buffer-offset
   l[]
@@ -708,6 +708,50 @@ constant rt.buffer-offset
   s.i32.add
   5 s.i32.const
   s.i32.add
+object.func-end
+
+[i32,i64]->[] object.func-start
+constant rt.bytes-push
+  l[i32,i32,i32]   \ params/locals: 0=bytes, 1=n, 2=buffer, 3=len, 4=new-buffer
+  65536 s.i32.const
+  0 s.local.get
+  0 s.i32.load
+  2 s.local.tee \ old buffer
+  0 s.i32.load8_u
+    s.i32.shl
+  5 s.i32.const
+    s.i32.sub   \ old capacity
+  2 s.local.get
+  1 s.i32.load
+  3 s.local.tee \ old len
+  s.i32.eq
+  s.if          \ need to reallocate first
+    2 s.local.get
+    0 s.i32.load8_u
+    1 s.i32.const
+      s.i32.add
+    rt.alloc.buffer s.call
+    4 s.local.tee   5 s.i32.const   s.i32.add \ dest
+    2 s.local.get   5 s.i32.const   s.i32.add \ src
+    3 s.local.get                             \ len
+    s.memory.copy
+    2 s.local.get
+    rt.free.buffer s.call
+    0 s.local.get
+    4 s.local.get
+    2 s.local.tee \ update buffer local
+    0 s.i32.store \ update bytes
+  s.end
+  2 s.local.get
+  3 s.local.get
+    s.i32.add
+  1 s.local.get
+  5 s.i64.store8 \ store byte
+  2 s.local.get
+  3 s.local.get
+  1 s.i32.const
+    s.i32.add
+  1 s.i32.store  \ increment len
 object.func-end
 
 
@@ -1354,42 +1398,10 @@ object.word words.builtin.bytes.length cell.set
 object.func-end
 
 object.word words.builtin.b% cell.set
-  l[i32,i32,i32,i32]
-  rt.pop.bytes s.call
-  0 s.local.tee   \ bytes
-  0 s.i32.load
-  1 s.local.tee   \ buffer
-  rt.buffer-capacity s.call
-  1 s.local.get
-  1 s.i32.load
-  2 s.local.tee   \ current len
-  s.i32.eq
-  s.if            \ at capacity
-    1 s.local.get
-    0 s.i32.load8_u
-    1 s.i32.const
-      s.i32.add   \ new size class
-    rt.alloc.buffer s.call
-    3 s.local.tee    1 s.i32.const    s.i32.add \ dest
-    1 s.local.get    1 s.i32.const    s.i32.add \ src
-    2 s.local.get    4 s.i32.const    s.i32.add \ len
-    s.memory.copy
-    1 s.local.get    rt.free.buffer s.call
-    0 s.local.get
-    3 s.local.get
-    1 s.local.tee \ buffer to modify
-    0 s.i32.store \ update pointer
-  s.end
-  1 s.local.get
-  2 s.local.get
-    s.i32.add
-  rt.pop.num s.call
-  5 s.i64.store8  \ store byte
-  1 s.local.get
-  2 s.local.get
-  1 s.i32.const
-    s.i32.add
-  1 s.i32.store   \ increment length
+  l[]
+  rt.pop.bytes  s.call
+  rt.pop.num    s.call
+  rt.bytes-push s.call
 object.func-end
 
 object.word words.builtin.b@ cell.set
