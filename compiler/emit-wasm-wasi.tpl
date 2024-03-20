@@ -665,28 +665,28 @@ constant rt.free.buffer
   0      s.i32.store
 object.func-end
 
-[]->[i32] object.func-start
+[i32]->[i32] object.func-start
 constant rt.alloc.bytes
   l[i32]
   rt.alloc.bytes-next s.global.get
-  0 s.local.tee                      \ space for pointer
+  1 s.local.tee                      \ space for pointer
   65535 s.i32.const
         s.i32.and
         s.i32.eqz
   s.if
     1 s.i32.const
     rt.alloc.pages s.call
-    0 s.local.set
+    1 s.local.set
   s.end
-  0 s.local.get
+  1 s.local.get
   4 s.i32.const
     s.i32.add
   rt.alloc.bytes-next s.global.set   \ next += 4
+  1 s.local.get
   0 s.local.get
-  0 s.i32.const
-  rt.alloc.buffer s.call             \ alloc smallest buffer
+  rt.alloc.buffer s.call             \ alloc
   0 s.i32.store
-  0 s.local.get
+  1 s.local.get
 object.func-end
 
 [i32,i64]->[i32] object.func-start
@@ -908,6 +908,7 @@ object.func-end
     l[i32,i32,i32,i32]
 
     \ allocate argv
+    0 s.i32.const
     rt.alloc.bytes s.call   \ assuming it fits into 64 KiB, otherwise traps
     0       s.local.tee
             s.i64.extend_i32_u
@@ -1375,6 +1376,7 @@ object.func-end
 
 object.word words.builtin.bytes.new cell.set
   l[]
+  0              s.i32.const
   rt.alloc.bytes s.call
                  s.i64.extend_i32_u
   3              s.i32.const
