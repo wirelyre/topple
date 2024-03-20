@@ -287,7 +287,7 @@ object.output
   \ types
   1 b%1
   object.sec.tmp
-    17 b%u
+    18 b%u
     96 b%1 0 b%u                   0 b%u              0 constant []->[]
     96 b%1 1 b%u s.i64             2 b%u s.i64 s.i32  1 constant [i64]->[i64,i32]
     96 b%1 3 b%u s.i64 s.i32 s.i64 0 b%u              2 constant [i64,i32,i64]->[]
@@ -305,6 +305,7 @@ object.output
     96 b%1 1 b%u s.i32             1 b%u s.i64       14 constant [i32]->[i64]
     96 b%1 2 b%u s.i32 s.i64       1 b%u s.i32       15 constant [i32,i64]->[i32]
     96 b%1 2 b%u s.i32 s.i32       0 b%u             16 constant [i32,i32]->[]
+    96 b%1 2 b%u s.i32 s.i32       1 b%u s.i32       17 constant [i32,i32]->[i32]
   object.append
 
   \ imports
@@ -312,9 +313,20 @@ object.output
   object.sec.tmp
 
     \ imports get function indices, but no entries in func/code sections
-    2 constant object.import-count
+    4 constant object.import-count
 
     object.import-count b%u
+
+    object.func constant wasi.args_get
+    0 49 119 101 105 118 101 114 112 95 116 111 104 115 112 97 110 115 95 105
+    115 97 119 object.string 0 116 101 103 95 115 103 114 97 object.string
+    0 b%1 [i32,i32]->[i32] b%u
+
+    object.func constant wasi.args_sizes_get
+    0 49 119 101 105 118 101 114 112 95 116 111 104 115 112 97 110 115 95 105
+    115 97 119 object.string 0 116 101 103 95 115 101 122 105 115 95 115 103 114
+    97 object.string
+    0 b%1 [i32,i32]->[i32] b%u
 
     object.func constant wasi.fd_write
     0 49 119 101 105 118 101 114 112 95 116 111 104 115 112 97 110 115 95 105
@@ -753,9 +765,153 @@ object.func-end
 
 \ 'emit' interface
 
+: emit.word.:
+  object.sec.func []->[] b%u drop
+  object.sec.tmp l[] drop
+  object.func
+;
+: emit.word.;
+  object.sec.code object.sec.tmp object.func-end
+;
+
+: emit.main.word   object.sec.main swap s.call drop ;
+: emit.main.number object.sec.main swap s.i64.const rt.push.num s.call drop ;
+
+: emit.word.word   object.sec.tmp  swap s.call drop ;
+: emit.word.number object.sec.tmp  swap s.i64.const rt.push.num s.call drop ;
+
+: emit.word.if   object.sec.tmp rt.pop.bool s.call s.if drop 0 ;
+: emit.word.if-else        drop      object.sec.tmp s.else drop 0 ;
+: emit.word.if-else-then   drop drop object.sec.tmp s.end  drop   ;
+: emit.word.if-then        drop      object.sec.tmp s.end  drop   ;
+
+: emit.word.begin              object.sec.tmp s.loop                  drop 0 ;
+: emit.word.while              object.sec.tmp rt.pop.bool s.call s.if drop 0 ;
+: emit.word.repeat   drop drop object.sec.tmp 1 s.br s.end s.end      drop ;
+
+: emit.word.exit   object.sec.tmp s.return drop ;
+
+: emit.word.string
+  object.sec.tmp
+    object.data-addr s.i32.const
+    rt.write s.call
+  drop
+  object.sec.data
+    object.data-addr 8 +    b%4   \ addr
+    dup bytes.length -rot 0 b%4   \ len (placeholder)
+    dup rot span.unescape         \ data
+    -rot                    b!4   \ len (fixed up)
+;
+
+: emit.type
+  4 +
+  dup 65535 > if "too many types\n" 15 fail then
+
+  []->[] object.func-start -rot   \ opener
+    l[]
+    3 pick      s.i32.const
+    rt.pop.user s.call
+    1           s.i32.const
+    rt.push     s.call
+  object.func-end swap
+
+  []->[] object.func-start -rot   \ closer
+    l[]
+    rt.pop.ptr s.call
+               s.i64.extend_i32_u
+    3 pick     s.i32.const
+    rt.push    s.call
+  object.func-end nip
+;
+
+: emit.constant
+  []->[] object.func-start -rot
+    l[]
+    object.data-addr s.i32.const
+    rt.load.mem s.call
+    rt.push s.call
+  object.func-end
+
+  object.sec.main
+    object.data-addr s.i32.const
+    rt.pop s.call
+    rt.store.mem s.call
+  drop
+
+  object.sec.data 0b%10 drop
+;
+
+: emit.variable
+  []->[] object.func-start -rot
+    l[]
+    object.data-addr s.i32.const
+    rt.load.mem s.call
+    rt.push s.call
+  object.func-end
+
+  []->[] object.func-start -rot
+    l[]
+    object.data-addr s.i32.const
+    rt.pop s.call
+    rt.store.mem s.call
+  object.func-end
+
+  object.sec.data 0b%10 drop
+;
+
 : object.init
   object.sec.main
-    l[]
+    l[i32,i32,i32,i32]
+
+    \ allocate argv
+    rt.alloc.bytes s.call   \ assuming it fits into 64 KiB, otherwise traps
+    0       s.local.tee
+            s.i64.extend_i32_u
+    3       s.i32.const
+    rt.push s.call
+    emit.constant words.builtin.argv cell.set
+
+    \ initialize argv
+    0 s.i32.const
+    4 s.i32.const
+    wasi.args_sizes_get s.call
+      s.drop
+    0 s.i32.const
+    0 s.i32.load \ argc
+    1 s.i32.const
+    s.i32.gt_u
+    s.if \ need to copy args
+      \ [size]:1 [len]:4 [arg 1] [args 2-] [arg pointers]
+      \ ^0               ^1      ^2        ^3
+      0 s.local.get
+      0 s.i32.load
+      0 s.local.tee \ size
+      5 s.i32.const
+        s.i32.add
+      1 s.local.tee \ arg 1
+      4 s.i32.const
+      0 s.i32.load
+        s.i32.add
+      3 s.local.tee \ arg pointers
+      1 s.local.get
+      wasi.args_get s.call
+        s.drop
+      3 s.local.get
+      4 s.i32.load
+      2 s.local.set \ args 2-
+      3 s.local.get
+      2 s.local.get
+        s.i32.sub
+      3 s.local.set \ len([args 2-])
+      1 s.local.get \ dest
+      2 s.local.get \ source
+      3 s.local.get \ len
+        s.memory.copy
+      0 s.local.get
+      3 s.local.get
+      1 s.i32.store
+    s.end
+
   drop
 ;
 
@@ -825,99 +981,6 @@ object.func-end
       object.append
 
 ;
-
-: emit.word.:
-  object.sec.func []->[] b%u drop
-  object.sec.tmp l[] drop
-  object.func
-;
-: emit.word.;
-  object.sec.code object.sec.tmp object.func-end
-;
-
-: emit.main.word   object.sec.main swap s.call drop ;
-: emit.word.word   object.sec.tmp  swap s.call drop ;
-: emit.main.number object.sec.main swap s.i64.const rt.push.num s.call drop ;
-: emit.word.number object.sec.tmp  swap s.i64.const rt.push.num s.call drop ;
-
-: emit.type
-  4 +
-  dup 65535 > if "too many types\n" 15 fail then
-
-  []->[] object.func-start -rot   \ opener
-    l[]
-    3 pick      s.i32.const
-    rt.pop.user s.call
-    1           s.i32.const
-    rt.push     s.call
-  object.func-end swap
-
-  []->[] object.func-start -rot   \ closer
-    l[]
-    rt.pop.ptr s.call
-               s.i64.extend_i32_u
-    3 pick     s.i32.const
-    rt.push    s.call
-  object.func-end nip
-;
-
-: emit.constant
-  []->[] object.func-start -rot
-    l[]
-    object.data-addr s.i32.const
-    rt.load.mem s.call
-    rt.push s.call
-  object.func-end
-
-  object.sec.main
-    object.data-addr s.i32.const
-    rt.pop s.call
-    rt.store.mem s.call
-  drop
-
-  object.sec.data 0b%10 drop
-;
-
-: emit.variable
-  []->[] object.func-start -rot
-    l[]
-    object.data-addr s.i32.const
-    rt.load.mem s.call
-    rt.push s.call
-  object.func-end
-
-  []->[] object.func-start -rot
-    l[]
-    object.data-addr s.i32.const
-    rt.pop s.call
-    rt.store.mem s.call
-  object.func-end
-
-  object.sec.data 0b%10 drop
-;
-
-: emit.word.string
-  object.sec.tmp
-    object.data-addr s.i32.const
-    rt.write s.call
-  drop
-  object.sec.data
-    object.data-addr 8 +    b%4   \ addr
-    dup bytes.length -rot 0 b%4   \ len (placeholder)
-    dup rot span.unescape         \ data
-    -rot                    b!4   \ len (fixed up)
-;
-
-: emit.word.if   object.sec.tmp rt.pop.bool s.call s.if drop 0 ;
-: emit.word.if-else        drop      object.sec.tmp s.else drop 0 ;
-: emit.word.if-else-then   drop drop object.sec.tmp s.end  drop   ;
-: emit.word.if-then        drop      object.sec.tmp s.end  drop   ;
-
-: emit.word.begin              object.sec.tmp s.loop                  drop 0 ;
-: emit.word.while              object.sec.tmp rt.pop.bool s.call s.if drop 0 ;
-: emit.word.repeat   drop drop object.sec.tmp 1 s.br s.end s.end      drop ;
-
-: emit.word.exit   object.sec.tmp s.return drop ;
 
 
 
