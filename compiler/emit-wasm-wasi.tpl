@@ -299,7 +299,7 @@ object.output
   \ types
   1 b%1
   object.sec.tmp
-    19 b%u
+    22 b%u
     96 b%1 0 b%u                   0 b%u              0 constant []->[]
     96 b%1 1 b%u s.i64             2 b%u s.i64 s.i32  1 constant [i64]->[i64,i32]
     96 b%1 3 b%u s.i64 s.i32 s.i64 0 b%u              2 constant [i64,i32,i64]->[]
@@ -319,6 +319,10 @@ object.output
     96 b%1 2 b%u s.i32 s.i32       0 b%u             16 constant [i32,i32]->[]
     96 b%1 2 b%u s.i32 s.i32       1 b%u s.i32       17 constant [i32,i32]->[i32]
     96 b%1 2 b%u s.i32 s.i64       0 b%u             18 constant [i32,i64]->[]
+    96 b%1 3 b%u s.i32 s.i32 s.i32 1 b%u s.i32       19 constant [i32,i32,i32]->[i32]
+    96 b%1 9 b%u s.i32 s.i32 s.i32 s.i32 s.i32 s.i64 s.i64 s.i32 s.i32 1 b%u s.i32
+                             20 constant [i32,i32,i32,i32,i32,i64,i64,i32,i32]->[i32]
+    96 b%1 4 b%u s.i32 s.i64 s.i32 s.i32 1 b%u s.i32 21 constant [i32,i64,i32,i32]->[i32]
   object.append
 
   \ imports
@@ -326,7 +330,7 @@ object.output
   object.sec.tmp
 
     \ imports get function indices, but no entries in func/code sections
-    4 constant object.import-count
+    10 constant object.import-count
 
     object.import-count b%u
 
@@ -341,10 +345,42 @@ object.output
     97 object.string
     0 b%1 [i32,i32]->[i32] b%u
 
+    object.func constant wasi.fd_close
+    0 49 119 101 105 118 101 114 112 95 116 111 104 115 112 97 110 115 95 105
+    115 97 119 object.string 0 101 115 111 108 99 95 100 102 object.string
+    0 b%1 [i32]->[i32] b%u
+
+    object.func constant wasi.fd_prestat_dir_name
+    0 49 119 101 105 118 101 114 112 95 116 111 104 115 112 97 110 115 95 105
+    115 97 119 object.string 0 101 109 97 110 95 114 105 100 95 116 97 116 115
+    101 114 112 95 100 102 object.string
+    0 b%1 [i32,i32,i32]->[i32] b%u
+
+    object.func constant wasi.fd_read
+    0 49 119 101 105 118 101 114 112 95 116 111 104 115 112 97 110 115 95 105
+    115 97 119 object.string 0 100 97 101 114 95 100 102 object.string
+    0 b%1 [i32,i32,i32,i32]->[i32] b%u
+
+    object.func constant wasi.fd_seek
+    0 49 119 101 105 118 101 114 112 95 116 111 104 115 112 97 110 115 95 105
+    115 97 119 object.string 0 107 101 101 115 95 100 102 object.string
+    0 b%1 [i32,i64,i32,i32]->[i32] b%u
+
+    object.func constant wasi.fd_tell
+    0 49 119 101 105 118 101 114 112 95 116 111 104 115 112 97 110 115 95 105
+    115 97 119 object.string 0 108 108 101 116 95 100 102 object.string
+    0 b%1 [i32,i32]->[i32] b%u
+
     object.func constant wasi.fd_write
     0 49 119 101 105 118 101 114 112 95 116 111 104 115 112 97 110 115 95 105
     115 97 119 object.string 0 101 116 105 114 119 95 100 102 object.string
     0 b%1 [i32,i32,i32,i32]->[i32] b%u
+
+    object.func constant wasi.path_open
+    0 49 119 101 105 118 101 114 112 95 116 111 104 115 112 97 110 115 95 105
+    115 97 119 object.string 0 110 101 112 111 95 104 116 97 112 object.string
+    0 b%1 [i32,i32,i32,i32,i32,i64,i64,i32,i32]->[i32] b%u
+    \ yes, that really is the signature
 
     object.func constant wasi.proc_exit
     0 49 119 101 105 118 101 114 112 95 116 111 104 115 112 97 110 115 95 105
