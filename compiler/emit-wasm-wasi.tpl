@@ -689,6 +689,24 @@ constant rt.alloc.bytes
   1 s.local.get
 object.func-end
 
+[i32]->[i32] object.func-start
+constant rt.bytes.size-class-for-capacity
+  l[]
+  0 s.local.get
+  65536 s.i32.const
+  s.i32.lt_u
+  s.if
+    0 s.i32.const
+      s.return
+  s.end
+  16 s.i32.const
+  0  s.local.get
+  4  s.i32.const
+     s.i32.add
+     s.i32.clz
+     s.i32.sub
+object.func-end
+
 [i32,i64]->[i32] object.func-start
 constant rt.buffer-offset
   l[]
