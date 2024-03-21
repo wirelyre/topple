@@ -1,20 +1,29 @@
 : nl "\n" ;
 
-bytes.new constant b
+\1234567890 file.read .
 
-b bytes.length .   \ 0
-1 b b%
-b bytes.length .   \ 1
-b bytes.clear
-b bytes.length .   \ 0
+bytes.new constant filename
+bytes.new constant contents
 
-: fill
-  0 begin dup 65536 < while
-    dup b b%
-  1 + repeat drop
-;
-fill
+\ tmp
+filename 116 over b% 109 over b% 112 over b% drop
 
-b bytes.length .   \ 65536
+\ README.md
+contents 82 over b% 69 over b% 65 over b% 68 over b% 77 over b% 69 over b% 46 over b% 109 over b% 100 over b% drop
+
+\ src/simple.py
+\filename 115 over b% 114 over b% 99 over b% 47 over b% 115 over b% 105 over b% 109 over b% 112 over b% 108 over b% 101 over b% 46 over b% 112 over b% 121 over b% drop
+
+contents filename file.write .
+
+\filename file.read
+\  dup bytes.length .
+\  0 over b@ .
+\  1 over b@ .
+\  2 over b@ .
+
+\ filename bytes.length .
+\ filename file.read bytes.length .
+\ filename bytes.length .
 
 nl
