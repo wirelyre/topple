@@ -1,13 +1,6 @@
 \ TODO: check ALL errors: want \n probably
 \ TODO: check all words (even those not tested)
 
-\ cwd []->[fd:i32]
-\ open [bytes:i32, o_flags:i32, fd_rights:i64]->[fd:i32]
-\ len [fd:i32]->[len:i32] (error for file too long)
-
-\ read (word) - open, len, alloc, do read, close, update bytes len
-\ write (word) - open, do write, close
-
 
 
 
@@ -294,7 +287,7 @@ object.output
   \ types
   1 b%1
   object.sec.tmp
-    22 b%u
+    23 b%u
     96 b%1 0 b%u                   0 b%u              0 constant []->[]
     96 b%1 1 b%u s.i64             2 b%u s.i64 s.i32  1 constant [i64]->[i64,i32]
     96 b%1 3 b%u s.i64 s.i32 s.i64 0 b%u              2 constant [i64,i32,i64]->[]
@@ -318,6 +311,7 @@ object.output
     96 b%1 9 b%u s.i32 s.i32 s.i32 s.i32 s.i32 s.i64 s.i64 s.i32 s.i32 1 b%u s.i32
                              20 constant [i32,i32,i32,i32,i32,i64,i64,i32,i32]->[i32]
     96 b%1 4 b%u s.i32 s.i64 s.i32 s.i32 1 b%u s.i32 21 constant [i32,i64,i32,i32]->[i32]
+    96 b%1 3 b%u s.i32 s.i32 s.i64 1 b%u s.i32       22 constant [i32,i32,i64]->[i32]
   object.append
 
   \ imports
@@ -724,7 +718,7 @@ object.func-end
 constant rt.bytes.size-class-for-capacity
   l[]
   0 s.local.get
-  65536 s.i32.const
+  65532 s.i32.const
   s.i32.lt_u
   s.if
     0 s.i32.const
@@ -801,6 +795,114 @@ constant rt.bytes-push
   1 s.i32.const
     s.i32.add
   1 s.i32.store  \ increment len
+object.func-end
+
+
+
+[]->[i32] object.func-start
+constant rt.file.cwd
+  l[i32]
+  3 s.i32.const
+  0 s.local.set
+  s.loop
+    0  s.local.get   \ fd
+    0  s.i32.const   \ *path
+    32 s.i32.const   \ path_len
+    wasi.fd_prestat_dir_name s.call
+    s.if             \ probably a bad file descriptor
+      \ no file access
+      0 10 115 115 101 99 99 97 32 101 108 105 102 32 111 110 object.error
+    s.end
+    0 s.i32.const
+    0 s.i32.load8_u
+    46 s.i32.const   \ starts with '.'?
+    s.i32.eq
+    s.if
+      0 s.local.get
+      s.return       \ we'll just assume it's a relative directory
+    s.end
+    0 s.local.get
+    1 s.i32.const
+    s.i32.add
+    0 s.local.set
+    0 s.br
+  s.end
+  s.unreachable
+object.func-end
+
+[i32,i32,i64]->[i32] object.func-start
+constant rt.file.open
+  \ params: bytes(filename), o_flags, fd_rights
+  \ returns: -1(failure) or fd
+  l[]
+  0 s.local.get
+  0 s.i32.load
+  1 s.i32.load
+  s.i32.eqz
+  s.if \ empty path
+    -1 s.i32.const
+    s.return
+  s.end
+  0 s.local.get
+  0 s.i64.const
+  rt.bytes-push s.call \ push null byte
+  rt.file.cwd s.call   \ fd
+  0 s.i32.const        \ dirflags (e.g. SYMLINK_FOLLOW)
+  0 s.local.get
+  0 s.i32.load
+  5 s.i32.const
+    s.i32.add          \ path
+  0 s.local.get
+  0 s.i32.load
+  1 s.i32.load         \ path_len
+  1 s.local.get        \ o_flags (e.g. CREAT, EXCL)
+  2 s.local.get        \ fd_rights_base (e.g. READ, WRITE, SEEK)
+  0 s.i64.const        \ fd_rights_inheriting
+  0 s.i32.const        \ fd_flags (e.g. NONBLOCK)
+  0 s.i32.const        \ (out) *fd
+  wasi.path_open s.call
+  0 s.local.get
+  0 s.i32.load
+  0 s.local.get
+  0 s.i32.load
+  1 s.i32.load
+  1 s.i32.const
+    s.i32.sub
+  1 s.i32.store        \ pop null byte
+  s.if
+    -1 s.i32.const
+    s.return           \ error
+  s.end
+  0 s.i32.const
+  0 s.i32.load         \ success
+object.func-end
+
+[i32]->[i32] object.func-start
+constant rt.file.len
+  l[]
+  0 s.local.get \ fd
+  0 s.i64.const \ offset
+  2 s.i32.const \ whence = END
+  0 s.i32.const \ (out) *pos
+  wasi.fd_seek s.call
+  s.if
+    \ could not seek file
+    0 10 101 108 105 102 32 107 101 101 115 32 116 111 110 32 100 108 117 111 99
+    object.error
+  s.end
+  0 s.i32.const
+  4 s.i32.load
+  s.if
+    \ file too large
+    0 10 101 103 114 97 108 32 111 111 116 32 101 108 105 102 object.error
+  s.end
+  0 s.i32.const
+  0 s.i32.load
+  0 s.local.get \ fd
+  0 s.i64.const \ offset
+  0 s.i32.const \ whence = SET (start of file)
+  0 s.i32.const \ (out) *pos (ignored)
+  wasi.fd_seek s.call   s.drop
 object.func-end
 
 
@@ -1473,4 +1575,144 @@ object.word words.builtin.b! cell.set
   rt.buffer-offset s.call
   rt.pop.num       s.call
   0                s.i64.store8
+object.func-end
+
+
+
+
+
+object.word words.builtin.file.read cell.set
+  l[i32,i32,i32]
+
+  rt.pop.bytes s.call
+  0 s.i32.const  \ o_flags = NONE
+  38 s.i64.const \ fd_rights = READ | SEEK | TELL
+  rt.file.open s.call
+  0 s.local.tee
+
+  -1 s.i32.const
+  s.i32.eq
+  s.if
+    0 s.i64.const
+    rt.push.num s.call
+    s.return \ couldn't open file -- not a fatal error
+  s.end
+
+  0 s.local.get
+  rt.file.len s.call
+  1 s.local.tee \ length of file
+
+  rt.bytes.size-class-for-capacity s.call
+  rt.alloc.bytes s.call
+  2 s.local.tee \ bytes
+  s.i64.extend_i32_u
+  3 s.i32.const
+  rt.push s.call
+
+  2 s.local.get
+  0 s.i32.load
+  2 s.local.tee \ buffer
+  1 s.local.get
+  1 s.i32.store \ initialize length
+
+  \ iovec time
+  0 s.i32.const
+  2 s.local.get
+  5 s.i32.const
+  s.i32.add
+  0 s.i32.store \ buf
+  4 s.i32.const
+  1 s.local.get
+  0 s.i32.store \ buf_len
+
+  0 s.local.get \ fd
+  0 s.i32.const \ iovs
+  1 s.i32.const \ iovs_len
+  0 s.i32.const \ (out) *nread
+  wasi.fd_read s.call
+  s.if
+    \ could not read file
+    0 10 101 108 105 102 32 100 97 101 114 32 116 111 110 32 100 108 117 111 99
+    object.error
+  s.end
+
+  0 s.i32.const
+  0 s.i32.load
+  1 s.local.get
+  s.i32.ne
+  s.if
+    \ could not read entire file
+    0 10 101 108 105 102 32 101 114 105 116 110 101 32 100 97 101 114 32 116 111
+    110 32 100 108 117 111 99 object.error
+  s.end
+
+  0 s.local.get \ fd
+  wasi.fd_close s.call
+  s.drop
+
+object.func-end
+
+object.word words.builtin.file.write cell.set
+  l[i32,i32]
+
+  rt.pop.bytes s.call
+  5 s.i32.const  \ o_flags = CREAT | EXCL
+  64 s.i64.const \ fd_rights = WRITE
+  rt.file.open s.call
+  0 s.local.tee
+
+  -1 s.i32.const
+  s.i32.eq
+  s.if
+    rt.pop.bytes s.call
+    s.drop
+    0 s.i64.const
+    rt.push.num s.call
+    s.return \ couldn't create file -- not a fatal error
+  s.end
+
+  \ ciovec time
+  0 s.i32.const
+  rt.pop.bytes s.call
+  0 s.i32.load
+  1 s.local.tee \ buffer
+  5 s.i32.const
+  s.i32.add
+  0 s.i32.store \ buf
+  4 s.i32.const
+  1 s.local.get
+  1 s.i32.load
+  0 s.i32.store \ buf_len
+
+  0 s.local.get \ fd
+  0 s.i32.const \ iovs
+  1 s.i32.const \ iovs_len
+  0 s.i32.const \ (out) *len
+  wasi.fd_write s.call
+
+  s.if
+    \ created but couldn't write -- this IS fatal
+    \ could not write to file
+    0 10 101 108 105 102 32 111 116 32 101 116 105 114 119 32 116 111 110 32 100
+    108 117 111 99 object.error
+  s.end
+
+  0 s.i32.const
+  0 s.i32.load
+  1 s.local.get
+  1 s.i32.load
+  s.i32.ne
+  s.if
+    \ could not write entire file
+    0 10 101 108 105 102 32 101 114 105 116 110 101 32 101 116 105 114 119 32
+    116 111 110 32 100 108 117 111 99 object.error
+  s.end
+
+  -1 s.i64.const
+  rt.push.num s.call
+
+  0 s.local.get
+  wasi.fd_close s.call
+  s.drop
+
 object.func-end
