@@ -1611,9 +1611,9 @@ object.word words.builtin.file.read cell.set
   wasi.fd_read s.call
   s.if
     \ opened but couldn't read -- this IS fatal
-    \ could not read file
-    0 10 101 108 105 102 32 100 97 101 114 32 116 111 110 32 100 108 117 111 99
-    object.error
+    \ could not read from file
+    0 10 101 108 105 102 32 109 111 114 102 32 100 97 101 114 32 116 111 110 32
+    100 108 117 111 99 object.error
   s.end
   0 s.i32.const
   0 s.i32.load
