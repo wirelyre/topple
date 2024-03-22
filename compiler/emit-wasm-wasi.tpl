@@ -128,8 +128,8 @@
 \
 \ ## Runtime
 \
-\    rt.write         [i32:chars] -> []
-\    rt.error         [i32:chars] -> []
+\    rt.write         [addr:i32, len:i32] -> []
+\    rt.error         [addr:i32, len:i32] -> []
 \    object.error <- compiler utility to fail with an error inline
 \
 \    rt.load.stack    [offset:i64] -> [value:i64, type:i32]   (bounds check)
@@ -443,21 +443,28 @@ drop
 
 \ Runtime
 
-[i32]->[]   object.func-start constant
+[i32,i32]->[]   object.func-start constant
 rt.write
   l[]
+  0 s.i32.const
+  0 s.local.get
+  0 s.i32.store   \ iovec.buf
+  4 s.i32.const
+  1 s.local.get
+  0 s.i32.store   \ iovec.buf_len
   2 s.i32.const   \ stream=stderr
-  0 s.local.get   \ const iovec *
+  0 s.i32.const   \ const iovec *
   1 s.i32.const   \ iovec_size=1
-  0 s.i32.const   \ size_t *bytes_written
+  0 s.i32.const   \ (out) *bytes_written
   wasi.fd_write s.call
   s.drop
 object.func-end
 
-[i32]->[]   object.func-start constant
+[i32,i32]->[]   object.func-start constant
 rt.error
   l[]
   0 s.local.get
+  1 s.local.get
   rt.write s.call
   15 s.i32.const
   wasi.proc_exit s.call
@@ -465,15 +472,14 @@ rt.error
 object.func-end
 
 : object.error
+  strlen
   object.sec.tmp
-    object.data-addr s.i32.const
+    object.data-addr s.i32.const \ addr
+    swap             s.i32.const \ len
     rt.error         s.call
                      s.unreachable
   drop
-  strlen
   object.sec.data
-    object.data-addr 8 + b%4   \ ptr
-    swap b%4                   \ len
     begin over while swap b%1 repeat
   drop drop
 ;
@@ -1040,13 +1046,9 @@ object.func-end
 : emit.word.string
   object.sec.tmp
     object.data-addr s.i32.const
+    object.sec.data rot span.unescape s.i32.const
     rt.write s.call
   drop
-  object.sec.data
-    object.data-addr 8 +    b%4   \ addr
-    dup bytes.length -rot 0 b%4   \ len (placeholder)
-    dup rot span.unescape         \ data
-    -rot                    b!4   \ len (fixed up)
 ;
 
 : emit.type
@@ -1393,15 +1395,10 @@ object.word words.builtin.. cell.set
        s.i64.ne
     0  s.br_if
   s.end
-  0  s.i32.const
-  0  s.local.get
-  0  s.i32.store     \ *(0) = addr
-  4  s.i32.const
+  0  s.local.get   \ addr
   32 s.i32.const
   0  s.local.get
-     s.i32.sub
-  0  s.i32.store     \ *(4) = len()
-  0  s.i32.const
+     s.i32.sub     \ len
   rt.write s.call
 object.func-end
 
@@ -1425,10 +1422,10 @@ object.word words.builtin.putc cell.set
     0 10 114 101 116 99 97 114 97 104 99 32 101 108 98 97 116 110 105 114 112 110 117
     object.error
   s.end
-  0 s.i32.const   8 s.i32.const   0 s.i32.store
-  4 s.i32.const   1 s.i32.const   0 s.i32.store
-  8 s.i32.const   0 s.local.get   0 s.i64.store8
-  0 s.i32.const   rt.write s.call
+  8 s.i32.const 0 s.local.get 0 s.i64.store8
+  8 s.i32.const   \ addr
+  1 s.i32.const   \ len
+  rt.write s.call
 object.func-end
 
 object.word words.builtin.fail cell.set
