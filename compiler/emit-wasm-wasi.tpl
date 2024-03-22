@@ -114,7 +114,6 @@
 \    wasi.fd_prestat_dir_name [i32,i32,i32]->[i32]
 \    wasi.fd_read             [i32,i32,i32,i32]->[i32]
 \    wasi.fd_seek             [i32,i64,i32,i32]->[i32]
-\    wasi.fd_tell             [i32,i32]->[i32]
 \    wasi.fd_write            [i32,i32,i32,i32]->[i32]
 \    wasi.path_open           [i32,i32,i32,i32,i32,i64,i64,i32,i32]->[i32]
 \    wasi.proc_exit           [i32]->[]
@@ -381,7 +380,7 @@ object.output
   object.sec.tmp
 
     \ imports get function indices, but no entries in func/code sections
-    10 constant object.import-count
+    9 constant object.import-count
 
     object.import-count b%u
 
@@ -413,10 +412,6 @@ object.output
     object.func constant wasi.fd_seek
     object._wasip1 0 107 101 101 115 95 100 102 object.string
     0 b%1 [i32,i64,i32,i32]->[i32] b%u
-
-    object.func constant wasi.fd_tell
-    object._wasip1 0 108 108 101 116 95 100 102 object.string
-    0 b%1 [i32,i32]->[i32] b%u
 
     object.func constant wasi.fd_write
     object._wasip1 0 101 116 105 114 119 95 100 102 object.string
