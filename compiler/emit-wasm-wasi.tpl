@@ -300,14 +300,15 @@ variable object.func-count   0 object.func-count!
   : s.i64 126 b%1 ;
 
   \ local signatures
-  : l[]                0 b%u ;
-  : l[i32]             1 b%u 1 b%u s.i32 ;
-  : l[i64]             1 b%u 1 b%u s.i64 ;
-  : l[i32,i32]         1 b%u 2 b%u s.i32 ;
-  : l[i32,i64]         2 b%u 1 b%u s.i32 1 b%u s.i64 ;
-  : l[i64,i64]         1 b%u 2 b%u s.i64 ;
-  : l[i32,i32,i32]     1 b%u 3 b%u s.i32 ;
-  : l[i32,i32,i32,i32] 1 b%u 4 b%u s.i32 ;
+  : l[]                    0 b%u ;
+  : l[i32]                 1 b%u 1 b%u s.i32 ;
+  : l[i64]                 1 b%u 1 b%u s.i64 ;
+  : l[i32,i32]             1 b%u 2 b%u s.i32 ;
+  : l[i32,i64]             2 b%u 1 b%u s.i32 1 b%u s.i64 ;
+  : l[i64,i64]             1 b%u 2 b%u s.i64 ;
+  : l[i32,i32,i32]         1 b%u 3 b%u s.i32 ;
+  : l[i32,i32,i32,i32]     1 b%u 4 b%u s.i32 ;
+  : l[i32,i32,i32,i32,i32] 1 b%u 5 b%u s.i32 ;
 
   \ chars = lambda s: ' '.join(['0'] + list(map(str, reversed(s.encode()))))
 
@@ -1104,7 +1105,7 @@ object.func-end
 
 : object.init
   object.sec.main
-    l[i32,i32,i32,i32]
+    l[i32,i32,i32,i32,i32]
 
     \ allocate argv
     0 s.i32.const
@@ -1125,8 +1126,10 @@ object.func-end
     1 s.i32.const
     s.i32.gt_u
     s.if \ need to copy args
-      \ [size]:1 [len]:4 [arg 1] [args 2-] [arg pointers]
-      \ ^0               ^1      ^2        ^3
+
+      \ [size]:1 [len]:4 [arg 1] [args 2-] pad [arg pointers]
+      \ ^0               ^1      ^2      ^3    ^4
+
       0 s.local.get
       0 s.i32.load
       0 s.local.tee \ size
@@ -1136,11 +1139,16 @@ object.func-end
       4 s.i32.const
       0 s.i32.load
         s.i32.add
-      3 s.local.tee \ arg pointers
+      3 s.local.tee \ end of args
+      3 s.i32.const
+        s.i32.add
+      3 not s.i32.const
+        s.i32.and
+      4 s.local.tee \ arg pointers
       1 s.local.get
       wasi.args_get s.call
         s.drop
-      3 s.local.get
+      4 s.local.get
       4 s.i32.load
       2 s.local.set \ args 2-
       3 s.local.get
