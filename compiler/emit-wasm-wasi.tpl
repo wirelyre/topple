@@ -980,28 +980,27 @@ object.func-end
 \ [i32,i32]->[] object.func-start
 \ constant DUMP-MEM
 \   l[i32,i32]
-\   4 s.i32.const   12 s.i32.const   0 s.i32.store
-\   8 s.i32.const    3 s.i32.const   0 s.i32.store
 \   s.loop
-\     12 s.i32.const
+\     8 s.i32.const
 \     0 s.local.get
 \     2 s.local.get
-\     s.i32.add
+\       s.i32.add
 \     0 s.i32.load8_u
 \     BYTE s.call
 \     0 s.i32.store16
-\     14 s.i32.const
+\     10 s.i32.const
 \       32 s.i32.const
 \       10 s.i32.const
 \         2 s.local.get
 \         1 s.i32.const
-\         s.i32.add
+\           s.i32.add
 \         2 s.local.tee
 \         15 s.i32.const
-\         s.i32.and
+\           s.i32.and
 \       s.select
 \       0 s.i32.store8
-\     4 s.i32.const
+\     8 s.i32.const
+\     3 s.i32.const
 \     rt.write s.call
 \     1 s.local.get
 \     2 s.local.get
