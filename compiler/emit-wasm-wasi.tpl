@@ -1,11 +1,3 @@
-\ TODO: factor out iovec initialization
-\ TODO: write more exhaustive tests for blocks and bytes
-\ TODO: exercise all errors, check text
-\ TODO: proofread/format code one more time
-
-
-
-
 \ emit-wasm-wasi.tpl
 \
 \ Implementation of 'emit' interface that produces WebAssembly modules.
@@ -15,7 +7,7 @@
 \
 \ There are no padding bytes.  The notation
 \    [field1]:1 [field2]:4
-\ represents a structure that is exactly 5 bytes.
+\ represents a structure that is exactly 5 bytes, with no required alignment.
 \
 \
 \
@@ -32,7 +24,7 @@
 \    4-65535 - user types
 \
 \ The stack pointer is a global i32.
-\ The type of user-defined words is [] -> [] (no params, no results).
+\ The type of built-in/user-defined words is [] -> [] (no params, no results).
 \
 \
 \
@@ -50,20 +42,22 @@
 \    global.get $sp
 \    i64.load offset=0
 \
+\ Scratch memory is used when calling WASI functions.
+\
 \
 \
 \ # Module format
 \
-\ -  header
-\ -  types (of functions)
-\ -  imports (WASI)
-\ - *functions (list of functions)
-\ -  memories
-\ -  globals
-\ -  exports
-\ -  data count
-\ - *code (function bodies)
-\ - *data (strings, constants, variables)
+\    -  header
+\    -  types (of functions)
+\    -  imports (WASI)
+\    - *functions (list of functions)
+\    -  memories
+\    -  globals
+\    -  exports
+\    -  data count
+\    - *code (function bodies)
+\    - *data (strings, constants, variables)
 \
 \ Only the *starred sections vary based on the input program.
 \
@@ -89,7 +83,7 @@
 \ They have a stable address which points to the current buffer.
 \
 \ The 'size_class' field represents the size of the buffer:
-\    capacity + 5 == 2 << (size_class + 16)
+\    capacity + 5 == 65536 << size_class
 \
 \ The minimum buffer allocation is one WebAssembly page, or 64 KiB, where:
 \    size_class == 0
@@ -129,30 +123,30 @@
 \
 \    rt.write         [addr:i32, len:i32] -> []
 \    rt.error         [addr:i32, len:i32] -> []
-\    object.error <- compiler utility to fail with an error inline
+\    object.error  <--  compiler utility to fail with an error inline
 \
-\    rt.load.stack    [offset:i64] -> [value:i64, type:i32]   (bounds check)
+\    rt.load.stack    [offset:i64] -> [value:i64, type:i32]   (checks bounds)
 \    rt.store.stack   [value:i64, type:i32, offset:i32] -> []
-\    rt.load.mem      [ptr:i32] -> [value:i64, type:i32]      (initialized check)
+\    rt.load.mem      [ptr:i32] -> [value:i64, type:i32]      (checks initialized)
 \    rt.store.mem     [ptr:i32, value:i64, type:i32] -> []
 \
-\    rt.push          [value:i64, type:i32] -> []   (overflow check)
+\    rt.push          [value:i64, type:i32] -> []   (checks overflow)
 \    rt.push.num      [num:i64] -> []
 \    rt.push.bool     [bool:i32] -> []              (pushes 0/nonzero:i32 as 0/-1:i64)
-\    rt.pop           [] -> [value:i64, type:i32]   (underflow check)
+\    rt.pop           [] -> [value:i64, type:i32]   (checks underflow)
 \    rt.pop.ptr       [] -> [ptr:i32]
 \    rt.pop.num       [] -> [num:i64]
 \    rt.pop.bool      [] -> [bool:i32]
 \    rt.pop.bytes     [] -> [bytes:i32]
 \    rt.pop.user      [type:i32] -> [value:i64]     (checks for correct type)
 \
-\    rt.alloc.pages   [count:i32] -> [addr:i32]
+\    rt.alloc.pages   [count:i32] -> [addr:i32]     (checks for out of memory)
 \    rt.alloc.block   [] -> [ptr:i32]
 \    rt.alloc.buffer  [size_class:i32] -> [buf:i32]
 \    rt.alloc.bytes   [size_class:i32] -> [bytes:i32]
 \    rt.free.buffer   [buf:i32] -> []
 \    rt.bytes.size-class-for-capacity [capacity:i32] -> [size_class:i32]
-\    rt.buffer-offset [buf:i32, off:i64] -> [byte_ptr:i32]   (bounds check)
+\    rt.buffer-offset [buf:i32, off:i64] -> [byte_ptr:i32]   (checks bounds)
 \    rt.bytes-push    [bytes:i32, byte:i64] -> []            (might reallocate)
 \
 \    rt.file.cwd      [] -> [fd:i32]
@@ -172,11 +166,12 @@ bytes.new constant object.output
     bytes.new constant object.sec.main   \ top-level code, emitted as final function
   bytes.new constant object.sec.data
 
-variable object.func-count   0 object.func-count!
+variable object.func-count
+0 object.func-count!
 
 : object.func        object.func-count@ dup 1 + object.func-count! ;
 : object.data-addr   object.sec.data bytes.length 100100 + ;
-: object.append
+: object.append      \ ( parent child -- parent )
   2dup bytes.length b%u drop   \ length-prefixed data
   2dup bytes.append drop
   bytes.clear
@@ -187,6 +182,7 @@ variable object.func-count   0 object.func-count!
 \ WebAssembly instructions
 \
 \ This is the entire assembler!
+\ (f32 and f64 instructions omitted.)
 
 \ control instructions (block types fixed as []->[])
 : s.unreachable          0 b%1          ;
@@ -324,7 +320,7 @@ variable object.func-count   0 object.func-count!
   \ ( sig -- code tmp func-id )
   \ usage:
   \    []->[]   object.func-start
-  \    constant name-of-func
+  \    constant my-function
   \      l[]
   \      body...
   \    object.func-end
@@ -351,8 +347,8 @@ object.output
     22 b%u
     96 b%1 0 b%u                   0 b%u              0 constant []->[]
     96 b%1 0 b%u                   1 b%u s.i32        1 constant []->[i32]
-    96 b%1 0 b%u                   2 b%u s.i64 s.i32  2 constant []->[i64,i32]
-    96 b%1 0 b%u                   1 b%u s.i64        3 constant []->[i64]
+    96 b%1 0 b%u                   1 b%u s.i64        2 constant []->[i64]
+    96 b%1 0 b%u                   2 b%u s.i64 s.i32  3 constant []->[i64,i32]
     96 b%1 1 b%u s.i32             0 b%u              4 constant [i32]->[]
     96 b%1 1 b%u s.i32             1 b%u s.i32        5 constant [i32]->[i32]
     96 b%1 1 b%u s.i32             1 b%u s.i64        6 constant [i32]->[i64]
@@ -438,18 +434,18 @@ drop
 \ Runtime
 
 [i32,i32]->[]   object.func-start constant
-rt.write
+rt.write   \ write to stderr
   l[]
   0 s.i32.const
   0 s.local.get
-  0 s.i32.store   \ iovec.buf
+  0 s.i32.store   \ ciovec.buf
   4 s.i32.const
   1 s.local.get
-  0 s.i32.store   \ iovec.buf_len
-  2 s.i32.const   \ stream=stderr
-  0 s.i32.const   \ const iovec *
-  1 s.i32.const   \ iovec_size=1
-  0 s.i32.const   \ (out) *bytes_written
+  0 s.i32.store   \ ciovec.buf_len
+  2 s.i32.const   \ stream = stderr
+  0 s.i32.const   \ const ciovec *
+  1 s.i32.const   \ iovs_len = 1
+  0 s.i32.const   \ (out) *nwritten
   wasi.fd_write s.call
   s.drop
 object.func-end
@@ -468,8 +464,8 @@ object.func-end
 : object.error
   strlen
   object.sec.tmp
-    object.data-addr s.i32.const \ addr
-    swap             s.i32.const \ len
+    object.data-addr s.i32.const   \ addr
+    swap             s.i32.const   \ len
     rt.error         s.call
                      s.unreachable
   drop
@@ -603,7 +599,7 @@ object.func-end
 rt.pop.ptr
   l[]
   rt.pop s.call
-  1 s.i32.const
+  1      s.i32.const
   s.i32.ne
   s.if
     \ expected pointer
@@ -617,7 +613,7 @@ object.func-end
 rt.pop.num
   l[]
   rt.pop s.call
-  2 s.i32.const
+  2      s.i32.const
   s.i32.ne
   s.if
     \ expected number
@@ -638,7 +634,7 @@ object.func-end
 rt.pop.bytes
   l[]
   rt.pop s.call
-  3 s.i32.const
+  3      s.i32.const
   s.i32.ne
   s.if
     \ expected bytes
@@ -651,7 +647,7 @@ object.func-end
 rt.pop.user
   l[]
   rt.pop s.call
-  0 s.local.get
+  0      s.local.get
   s.i32.ne
   s.if
     \ wrong user type
@@ -668,7 +664,7 @@ rt.alloc.pages
      s.memory.grow
   0  s.local.tee
   -1 s.i32.const
-     s.i32.eq
+  s.i32.eq
   s.if
     \ out of memory
     0 10 121 114 111 109 101 109 32 102 111 32 116 117 111 object.error
@@ -684,7 +680,7 @@ rt.alloc.block
   rt.alloc.block-next s.global.get
   65535 s.i32.const
         s.i32.and
-        s.i32.eqz
+  s.i32.eqz
   s.if
     \ need to allocate
     1 s.i32.const
@@ -706,23 +702,24 @@ rt.alloc.buffer
          s.i32.shl
   100032 s.i32.const
          s.i32.add
-  1      s.local.tee \ linked list of correct-size buffers
+  1      s.local.tee   \ linked list of correct-size buffers
   0      s.i32.load
-  2      s.local.tee \ buffer to return
+  2      s.local.tee   \ buffer to return
   s.i32.eqz
   s.if
     1 s.i32.const
     0 s.local.get
-      s.i32.shl      \ number of pages to allocate
+      s.i32.shl        \ number of pages to allocate
     rt.alloc.pages s.call
-    2 s.local.tee    \ buffer to return
+    2 s.local.tee      \ buffer to return
     0 s.local.get
-    0 s.i32.store8   \ initialize size class
+    0 s.i32.store8     \ initialize size class
+                       \ 'next' is already 0
   s.end
   1 s.local.get
   2 s.local.get
   1 s.i32.load
-  0 s.i32.store      \ unlink from free list
+  0 s.i32.store        \ unlink from free list
   2 s.local.get
 object.func-end
 
@@ -771,6 +768,7 @@ object.func-end
 [i32]->[i32]   object.func-start constant
 rt.bytes.size-class-for-capacity
   l[]
+  \ max(0, ceil(log_2(cap + 5) - 16))
   0 s.local.get
   65532 s.i32.const
   s.i32.lt_u
@@ -791,7 +789,7 @@ rt.buffer-offset
   l[]
   0 s.local.get
   1 s.i32.load
-  s.i64.extend_i32_u \ len
+    s.i64.extend_i32_u \ len
   1 s.local.get
   s.i64.le_u
   s.if
@@ -801,10 +799,10 @@ rt.buffer-offset
   s.end
   0 s.local.get
   1 s.local.get
-  s.i32.wrap_i64
-  s.i32.add
+    s.i32.wrap_i64
+    s.i32.add
   5 s.i32.const
-  s.i32.add
+    s.i32.add
 object.func-end
 
 [i32,i64]->[]   object.func-start constant
@@ -813,24 +811,24 @@ rt.bytes-push
   65536 s.i32.const
   0 s.local.get
   0 s.i32.load
-  2 s.local.tee \ old buffer
+  2 s.local.tee    \ old buffer
   0 s.i32.load8_u
     s.i32.shl
   5 s.i32.const
-    s.i32.sub   \ old capacity
+    s.i32.sub      \ old capacity
   2 s.local.get
   1 s.i32.load
-  3 s.local.tee \ old len
+  3 s.local.tee    \ old len
   s.i32.eq
-  s.if          \ need to reallocate first
+  s.if             \ need to reallocate first
     2 s.local.get
     0 s.i32.load8_u
     1 s.i32.const
       s.i32.add
     rt.alloc.buffer s.call
-    4 s.local.tee   5 s.i32.const   s.i32.add \ dest
-    2 s.local.get   5 s.i32.const   s.i32.add \ src
-    3 s.local.get                             \ len
+    4 s.local.tee   5 s.i32.const   s.i32.add   \ dest
+    2 s.local.get   5 s.i32.const   s.i32.add   \ src
+    3 s.local.get                               \ len
     s.memory.copy
     2 s.local.get
     rt.free.buffer s.call
@@ -860,15 +858,15 @@ rt.file.cwd
   0 s.local.set
   s.loop
     0  s.local.get   \ fd
-    0  s.i32.const   \ *path
+    0  s.i32.const   \ (out) *path
     32 s.i32.const   \ path_len
     wasi.fd_prestat_dir_name s.call
     s.if             \ probably a bad file descriptor
       \ no file access
       0 10 115 115 101 99 99 97 32 101 108 105 102 32 111 110 object.error
     s.end
-    0 s.i32.const
-    0 s.i32.load8_u
+    0  s.i32.const
+    0  s.i32.load8_u
     46 s.i32.const   \ starts with '.'?
     s.i32.eq
     s.if
@@ -877,7 +875,7 @@ rt.file.cwd
     s.end
     0 s.local.get
     1 s.i32.const
-    s.i32.add
+      s.i32.add
     0 s.local.set
     0 s.br
   s.end
@@ -895,7 +893,7 @@ rt.file.open
   s.i32.eqz
   s.if \ empty path
     -1 s.i32.const
-    s.return
+       s.return
   s.end
   0 s.local.get
   0 s.i64.const
@@ -925,7 +923,7 @@ rt.file.open
   1 s.i32.store        \ pop null byte
   s.if
     -1 s.i32.const
-    s.return           \ error
+       s.return        \ error
   s.end
   0 s.i32.const
   0 s.i32.load         \ success
@@ -934,10 +932,10 @@ object.func-end
 [i32]->[i32]   object.func-start constant
 rt.file.len
   l[]
-  0 s.local.get \ fd
-  0 s.i64.const \ offset
-  2 s.i32.const \ whence = END
-  0 s.i32.const \ (out) *pos
+  0 s.local.get   \ fd
+  0 s.i64.const   \ offset
+  2 s.i32.const   \ whence = END
+  0 s.i32.const   \ (out) *pos
   wasi.fd_seek s.call
   s.if
     \ could not seek file
@@ -952,10 +950,10 @@ rt.file.len
   s.end
   0 s.i32.const
   0 s.i32.load
-  0 s.local.get \ fd
-  0 s.i64.const \ offset
-  0 s.i32.const \ whence = SET (start of file)
-  0 s.i32.const \ (out) *pos (ignored)
+  0 s.local.get   \ fd
+  0 s.i64.const   \ offset
+  0 s.i32.const   \ whence = SET (start of file)
+  0 s.i32.const   \ (out) *pos (ignored)
   wasi.fd_seek s.call   s.drop
 object.func-end
 
@@ -991,12 +989,12 @@ object.func-end
 \     10 s.i32.const
 \       32 s.i32.const
 \       10 s.i32.const
-\         2 s.local.get
-\         1 s.i32.const
-\           s.i32.add
-\         2 s.local.tee
+\         2  s.local.get
+\         1  s.i32.const
+\            s.i32.add
+\         2  s.local.tee
 \         15 s.i32.const
-\           s.i32.and
+\            s.i32.and
 \       s.select
 \       0 s.i32.store8
 \     8 s.i32.const
@@ -1004,7 +1002,7 @@ object.func-end
 \     rt.write s.call
 \     1 s.local.get
 \     2 s.local.get
-\     s.i32.gt_u
+\       s.i32.gt_u
 \     0 s.br_if
 \   s.end
 \ object.func-end
@@ -1114,8 +1112,8 @@ object.func-end
     emit.constant words.builtin.argv cell.set
 
     \ initialize argv
-    0 s.i32.const
-    4 s.i32.const
+    0 s.i32.const   \ (out) *argc
+    4 s.i32.const   \ (out) *argv_buf_size
     wasi.args_sizes_get s.call
       s.drop
     0 s.i32.const
@@ -1124,8 +1122,8 @@ object.func-end
     s.i32.gt_u
     s.if \ need to copy args
 
-      \ [size]:1 [len]:4 [arg 1] [args 2-] pad [arg pointers]
-      \ ^0               ^1      ^2      ^3    ^4
+      \ [size]:1 [len]:4 [arg 1] [args 2-] padding [arg pointers]
+      \ ^0               ^1      ^2      ^3        ^4
 
       0 s.local.get
       0 s.i32.load
@@ -1141,8 +1139,8 @@ object.func-end
         s.i32.add
       3 not s.i32.const
         s.i32.and
-      4 s.local.tee \ arg pointers
-      1 s.local.get
+      4 s.local.tee \ (out) *argv / arg pointers
+      1 s.local.get \ (out) *argv_buf
       wasi.args_get s.call
         s.drop
       4 s.local.get
@@ -1301,7 +1299,7 @@ object.func-end
 
 object.word words.builtin.drop cell.set
   l[]
-  rt.pop s.call   s.drop   s.drop
+  rt.pop s.call   s.drop s.drop
 object.func-end
 
 object.word words.builtin.swap cell.set
@@ -1419,8 +1417,8 @@ object.word words.builtin.putc cell.set
         s.i32.and
     0   s.br_if   \ (' ' <= c) && (c <= '~')
     \ unprintable character
-    0 10 114 101 116 99 97 114 97 104 99 32 101 108 98 97 116 110 105 114 112 110 117
-    object.error
+    0 10 114 101 116 99 97 114 97 104 99 32 101 108 98 97 116 110 105 114 112
+    110 117 object.error
   s.end
   8 s.i32.const 0 s.local.get 0 s.i64.store8
   8 s.i32.const   \ addr
@@ -1505,9 +1503,9 @@ object.func-end
 object.word words.builtin.bytes.clear cell.set
   l[i32]
   rt.pop.bytes s.call
-  0 s.i32.load
-  0 s.i32.const
-  1 s.i32.store
+  0            s.i32.load
+  0            s.i32.const
+  1            s.i32.store
 object.func-end
 
 object.word words.builtin.bytes.length cell.set
@@ -1567,8 +1565,8 @@ object.func-end
 object.word words.builtin.file.read cell.set
   l[i32,i32,i32]
   rt.pop.bytes s.call
-   0 s.i32.const  \ o_flags = NONE
-  38 s.i64.const \ fd_rights = READ | SEEK | TELL
+   0 s.i32.const   \ o_flags = NONE
+  38 s.i64.const   \ fd_rights = READ | SEEK | TELL
   rt.file.open s.call
    0 s.local.tee
   -1 s.i32.const
@@ -1576,35 +1574,35 @@ object.word words.builtin.file.read cell.set
   s.if
     0 s.i64.const
     rt.push.num s.call
-    s.return \ couldn't open file -- not a fatal error
+    s.return   \ couldn't open file -- not a fatal error
   s.end
   0 s.local.get
   rt.file.len s.call
-  1 s.local.tee \ length of file
+  1 s.local.tee    \ length of file
   rt.bytes.size-class-for-capacity s.call
   rt.alloc.bytes s.call
-  2 s.local.tee \ bytes
+  2 s.local.tee    \ bytes
   s.i64.extend_i32_u
   3 s.i32.const
-  rt.push s.call \ push the bytes
+  rt.push s.call   \ push the bytes
   2 s.local.get
   0 s.i32.load
-  2 s.local.tee \ buffer
+  2 s.local.tee    \ buffer
   1 s.local.get
-  1 s.i32.store \ initialize length
+  1 s.i32.store    \ initialize length
   \ prepare iovec
   0 s.i32.const
   2 s.local.get
   5 s.i32.const
   s.i32.add
-  0 s.i32.store \ buf
+  0 s.i32.store   \ iovec.buf
   4 s.i32.const
   1 s.local.get
-  0 s.i32.store \ buf_len
-  0 s.local.get \ fd
-  0 s.i32.const \ iovs
-  1 s.i32.const \ iovs_len
-  0 s.i32.const \ (out) *nread
+  0 s.i32.store   \ iovec.buf_len
+  0 s.local.get   \ fd
+  0 s.i32.const   \ iovec *
+  1 s.i32.const   \ iovs_len = 1
+  0 s.i32.const   \ (out) *nread
   wasi.fd_read s.call
   s.if
     \ opened but couldn't read -- this IS fatal
@@ -1613,8 +1611,8 @@ object.word words.builtin.file.read cell.set
     100 108 117 111 99 object.error
   s.end
   0 s.i32.const
-  0 s.i32.load
-  1 s.local.get
+  0 s.i32.load    \ nread
+  1 s.local.get   \ expected size
   s.i32.ne
   s.if
     \ could not read entire file
@@ -1629,10 +1627,10 @@ object.func-end
 object.word words.builtin.file.write cell.set
   l[i32,i32]
   rt.pop.bytes s.call
-  5 s.i32.const  \ o_flags = CREAT | EXCL
-  64 s.i64.const \ fd_rights = WRITE
+   5 s.i32.const   \ o_flags = CREAT | EXCL
+  64 s.i64.const   \ fd_rights = WRITE
   rt.file.open s.call
-  0 s.local.tee  \ fd
+   0 s.local.tee   \ fd
   -1 s.i32.const
   s.i32.eq
   s.if
@@ -1640,24 +1638,24 @@ object.word words.builtin.file.write cell.set
     s.drop
     0 s.i64.const
     rt.push.num s.call
-    s.return \ couldn't create file -- not a fatal error
+    s.return   \ couldn't create file -- not a fatal error
   s.end
   \ prepare ciovec
   0 s.i32.const
   rt.pop.bytes s.call
   0 s.i32.load
-  1 s.local.tee \ buffer
+  1 s.local.tee   \ buffer
   5 s.i32.const
   s.i32.add
-  0 s.i32.store \ buf
+  0 s.i32.store   \ ciovec.buf
   4 s.i32.const
   1 s.local.get
   1 s.i32.load
-  0 s.i32.store \ buf_len
-  0 s.local.get \ fd
-  0 s.i32.const \ iovs
-  1 s.i32.const \ iovs_len
-  0 s.i32.const \ (out) *len
+  0 s.i32.store   \ ciovec.buf_len
+  0 s.local.get   \ fd
+  0 s.i32.const   \ iovec *
+  1 s.i32.const   \ iovs_len = 1
+  0 s.i32.const   \ (out) *nwritten
   wasi.fd_write s.call
   s.if
     \ created but couldn't write -- this IS fatal
@@ -1666,10 +1664,10 @@ object.word words.builtin.file.write cell.set
     108 117 111 99 object.error
   s.end
   0 s.i32.const
-  0 s.i32.load
+  0 s.i32.load   \ nwritten
   1 s.local.get
-  1 s.i32.load
-  s.i32.ne             \ compare written with expected
+  1 s.i32.load   \ real size
+  s.i32.ne
   s.if
     \ could not write entire file
     0 10 101 108 105 102 32 101 114 105 116 110 101 32 101 116 105 114 119 32
