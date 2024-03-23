@@ -307,7 +307,6 @@ variable object.func-count   0 object.func-count!
   : l[i32,i64]             2 b%u 1 b%u s.i32 1 b%u s.i64 ;
   : l[i64,i64]             1 b%u 2 b%u s.i64 ;
   : l[i32,i32,i32]         1 b%u 3 b%u s.i32 ;
-  : l[i32,i32,i32,i32]     1 b%u 4 b%u s.i32 ;
   : l[i32,i32,i32,i32,i32] 1 b%u 5 b%u s.i32 ;
 
   \ chars = lambda s: ' '.join(['0'] + list(map(str, reversed(s.encode()))))
@@ -349,7 +348,7 @@ object.output
   \ types
   1 b%1
   object.sec.tmp
-    23 b%u
+    22 b%u
     96 b%1 0 b%u                   0 b%u              0 constant []->[]
     96 b%1 0 b%u                   1 b%u s.i32        1 constant []->[i32]
     96 b%1 0 b%u                   2 b%u s.i64 s.i32  2 constant []->[i64,i32]
@@ -369,11 +368,10 @@ object.output
     96 b%1 3 b%u s.i32 s.i32 s.i64 1 b%u s.i32       16 constant [i32,i32,i64]->[i32]
     96 b%1 3 b%u s.i32 s.i64 s.i32 0 b%u             17 constant [i32,i64,i32]->[]
     96 b%1 3 b%u s.i64 s.i32 s.i32 0 b%u             18 constant [i64,i32,i32]->[]
-    96 b%1 3 b%u s.i64 s.i32 s.i64 0 b%u             19 constant [i64,i32,i64]->[]
-    96 b%1 4 b%u s.i32 s.i32 s.i32 s.i32 1 b%u s.i32 20 constant [i32,i32,i32,i32]->[i32]
-    96 b%1 4 b%u s.i32 s.i64 s.i32 s.i32 1 b%u s.i32 21 constant [i32,i64,i32,i32]->[i32]
+    96 b%1 4 b%u s.i32 s.i32 s.i32 s.i32 1 b%u s.i32 19 constant [i32,i32,i32,i32]->[i32]
+    96 b%1 4 b%u s.i32 s.i64 s.i32 s.i32 1 b%u s.i32 20 constant [i32,i64,i32,i32]->[i32]
     96 b%1 9 b%u s.i32 s.i32 s.i32 s.i32 s.i32 s.i64 s.i64 s.i32 s.i32 1 b%u s.i32
-           22 constant [i32,i32,i32,i32,i32,i64,i64,i32,i32]->[i32]
+           21 constant [i32,i32,i32,i32,i32,i64,i64,i32,i32]->[i32]
   object.append
 
   \ imports
