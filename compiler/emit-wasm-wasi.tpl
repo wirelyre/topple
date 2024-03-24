@@ -199,7 +199,7 @@ variable object.func-count
 : s.call_indirect   rot 17 b%1 rot  b%u swap b%u ;
 
 \ reference instructions
-: s.ref.null   swap 208 b%1 swap b%u ;
+: s.ref.null   swap 208 b%1 swap b%1 ;
 : s.ref.is_null     209 b%1          ;
 : s.ref.func   swap 210 b%1 swap b%u ;
 
