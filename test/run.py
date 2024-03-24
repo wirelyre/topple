@@ -14,6 +14,7 @@ impl_align = 2 + max(
         "Python",
         "simple-Py2",
         "simple-Py3",
+        "wasm",
     ]
 )
 test_align = max(len(str(test)) for test in tests)
@@ -64,6 +65,23 @@ def simple_interpreter(test, executable):
         return None
 
 
+def wasm(test):
+    try:
+        subprocess.check_output(
+            ["wasm3", "build/wasm/topple", "-o", "build/test.tmp.wasm", test]
+        )
+
+        return subprocess.check_output(
+            ["wasm3", "build/test.tmp.wasm"], stderr=subprocess.STDOUT
+        )
+
+    except:
+        return None
+
+    finally:
+        Path("build/test.tmp.wasm").unlink(missing_ok=True)
+
+
 ERROR = re.compile(br"\\ ERROR")
 OK = re.compile(br"\\ OK -- ?(.*)")
 unexpected = []
@@ -102,6 +120,8 @@ for test in tests:
     end("simple-Py2", test, expected, simple_interpreter(test, "python2"))
     start("simple-Py3", test)
     end("simple-Py3", test, expected, simple_interpreter(test, "python3"))
+    start("wasm", test)
+    end("wasm", test, expected, wasm(test))
 
 
 if len(unexpected) == 0:

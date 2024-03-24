@@ -1,6 +1,6 @@
 .PHONY: all clean test
 
-all: build/c/topple build/riscv64/topple
+all: build/c/topple build/riscv64/topple build/wasm/topple
 
 
 
@@ -10,6 +10,7 @@ COMPILER_LIB = compiler/misc.tpl compiler/cell.tpl compiler/bytes.tpl \
 COMPILER_DRIVER = compiler/args.tpl compiler/parse.tpl compiler/main.tpl
 
 COMPILER_RISCV64 = $(COMPILER_LIB) compiler/emit-riscv64-linux-elf.tpl $(COMPILER_DRIVER)
+COMPILER_WASM = $(COMPILER_LIB) compiler/emit-wasm-wasi.tpl $(COMPILER_DRIVER)
 
 
 
@@ -36,8 +37,21 @@ build/riscv64/verify: build/riscv64/topple $(COMPILER_RISCV64)
 
 
 
+build/wasm/topple: src/simple.py $(COMPILER_WASM)
+	@mkdir -p build/wasm
+	rm -f build/wasm/topple
+	cat $(COMPILER_WASM) \
+		| python src/simple.py \
+		| python - -o build/wasm/topple $(COMPILER_WASM)
+
+build/wasm/verify: build/wasm/topple $(COMPILER_WASM)
+	rm -f build/wasm/verify
+	wasm3 build/wasm/topple -o build/wasm/verify $(COMPILER_WASM)
+
+
+
 clean:
 	rm -rf build
 
-test: build/c/topple
+test: build/c/topple build/wasm/topple
 	python3 test/run.py
