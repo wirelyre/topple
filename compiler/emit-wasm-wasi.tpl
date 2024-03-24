@@ -142,10 +142,9 @@
 \
 \    rt.alloc.pages   [count:i32] -> [addr:i32]     (checks for out of memory)
 \    rt.alloc.block   [] -> [ptr:i32]
-\    rt.alloc.buffer  [size_class:i32] -> [buf:i32]
-\    rt.alloc.bytes   [size_class:i32] -> [bytes:i32]
+\    rt.alloc.buffer  [capacity:i32] -> [buf:i32]
+\    rt.alloc.bytes   [capacity:i32] -> [bytes:i32]
 \    rt.free.buffer   [buf:i32] -> []
-\    rt.bytes.size-class-for-capacity [capacity:i32] -> [size_class:i32]
 \    rt.buffer-offset [buf:i32, off:i64] -> [byte_ptr:i32]   (checks bounds)
 \    rt.bytes-push    [bytes:i32, byte:i64] -> []            (might reallocate)
 \
@@ -697,6 +696,21 @@ object.func-end
 [i32]->[i32]   object.func-start constant
 rt.alloc.buffer
   l[i32,i32]
+  0 s.local.get
+  65532 s.i32.const
+  s.i32.lt_u
+  s.if
+    0 s.i32.const
+    0 s.local.set   \ size class = 0
+  s.else
+    16 s.i32.const
+    0  s.local.get
+    4  s.i32.const
+       s.i32.add
+       s.i32.clz
+       s.i32.sub
+    0 s.local.set   \ size class = ceil(log_2(cap + 5) - 16)
+  s.end
   0      s.local.get
   2      s.i32.const
          s.i32.shl
@@ -727,7 +741,7 @@ object.func-end
 rt.alloc.bytes
   l[i32]
   rt.alloc.bytes-next s.global.get
-  1 s.local.tee                      \ space for pointer
+  1 s.local.tee   \ bytes
   65535 s.i32.const
         s.i32.and
         s.i32.eqz
@@ -742,7 +756,7 @@ rt.alloc.bytes
   rt.alloc.bytes-next s.global.set   \ next += 4
   1 s.local.get
   0 s.local.get
-  rt.alloc.buffer s.call             \ alloc
+  rt.alloc.buffer s.call
   0 s.i32.store
   1 s.local.get
 object.func-end
@@ -763,25 +777,6 @@ rt.free.buffer
   1      s.local.get
   0      s.local.get
   0      s.i32.store
-object.func-end
-
-[i32]->[i32]   object.func-start constant
-rt.bytes.size-class-for-capacity
-  l[]
-  \ max(0, ceil(log_2(cap + 5) - 16))
-  0 s.local.get
-  65532 s.i32.const
-  s.i32.lt_u
-  s.if
-    0 s.i32.const
-      s.return
-  s.end
-  16 s.i32.const
-  0  s.local.get
-  4  s.i32.const
-     s.i32.add
-     s.i32.clz
-     s.i32.sub
 object.func-end
 
 [i32,i64]->[i32]   object.func-start constant
@@ -821,8 +816,7 @@ rt.bytes-push
   3 s.local.tee    \ old len
   s.i32.eq
   s.if             \ need to reallocate first
-    2 s.local.get
-    0 s.i32.load8_u
+    3 s.local.get
     1 s.i32.const
       s.i32.add
     rt.alloc.buffer s.call
@@ -1579,7 +1573,6 @@ object.word words.builtin.file.read cell.set
   0 s.local.get
   rt.file.len s.call
   1 s.local.tee    \ length of file
-  rt.bytes.size-class-for-capacity s.call
   rt.alloc.bytes s.call
   2 s.local.tee    \ bytes
   s.i64.extend_i32_u
