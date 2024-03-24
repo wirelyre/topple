@@ -161,8 +161,7 @@ the stack.
 The values on the stack can be numbers (64-bit integers), byte arrays,
 pointers, and user-defined types.
 
-By convention, when written left to write, the top of the stack is on the
-right.
+By convention, when written left to right, the top of the stack is on the right.
 
 ```
 \ stack: (empty)
@@ -356,7 +355,7 @@ In loops, like in conditions, only the number 0 is falsy.  Any other value is
 truthy.  However, in loops, all three of `begin`, `while`, and `repeat` must
 appear, unlike in conditions where `else` is optional.
 
-Exits are denoted by the control word **`exit`**. 
+Exits are denoted by the control word **`exit`**.
 
 ```
 : a
@@ -461,7 +460,7 @@ duplicates the top value on the stack.  `drop` removes the top value from the
 stack.
 
 How are values duplicated?
-- **Numbers:** a copy of the number is created. 
+- **Numbers:** a copy of the number is created.
 - **Byte arrays:** another reference to the *same byte array* is created.
 - **Pointers:** a copy of the pointer is created.  The copy is distinct from
   the original, but they both point to the same underlying data (the same cell
@@ -757,6 +756,7 @@ It is illegal to:
   - Execute source code with control structures outside of definitions.
   - Define a number as a word.
   - Define a word more than once.
+  - Redefine a built-in word.
   - Redefine a control word.
 
 - Semantics
