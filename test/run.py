@@ -24,7 +24,7 @@ def c_interpreter(test):
     try:
         with open(test, "rb") as t:
             return subprocess.check_output(
-                ["build/topple-c"], stdin=t, stderr=subprocess.STDOUT
+                ["build/c/topple"], stdin=t, stderr=subprocess.STDOUT
             )
     except:
         return None
