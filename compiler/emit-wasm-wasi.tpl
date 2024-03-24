@@ -295,14 +295,14 @@ variable object.func-count
   : s.i64 126 b%1 ;
 
   \ local signatures
-  : l[]                    0 b%u ;
-  : l[i32]                 1 b%u 1 b%u s.i32 ;
-  : l[i64]                 1 b%u 1 b%u s.i64 ;
-  : l[i32,i32]             1 b%u 2 b%u s.i32 ;
-  : l[i32,i64]             2 b%u 1 b%u s.i32 1 b%u s.i64 ;
-  : l[i64,i64]             1 b%u 2 b%u s.i64 ;
-  : l[i32,i32,i32]         1 b%u 3 b%u s.i32 ;
-  : l[i32,i32,i32,i32,i32] 1 b%u 5 b%u s.i32 ;
+  : l[]                0 b%u ;
+  : l[i32]             1 b%u 1 b%u s.i32 ;
+  : l[i64]             1 b%u 1 b%u s.i64 ;
+  : l[i32,i32]         1 b%u 2 b%u s.i32 ;
+  : l[i32,i64]         2 b%u 1 b%u s.i32 1 b%u s.i64 ;
+  : l[i64,i64]         1 b%u 2 b%u s.i64 ;
+  : l[i32,i32,i32]     1 b%u 3 b%u s.i32 ;
+  : l[i32,i32,i32,i32] 1 b%u 4 b%u s.i32 ;
 
   \ chars = lambda s: ' '.join(['0'] + list(map(str, reversed(s.encode()))))
 
@@ -1094,12 +1094,12 @@ object.func-end
 
 : object.init
   object.sec.main
-    l[i32,i32,i32,i32,i32]
+    l[i32,i32,i32,i32]
 
     \ allocate argv
     0 s.i32.const
     rt.alloc.bytes s.call   \ assuming it fits into 64 KiB, otherwise traps
-    0       s.local.tee
+    0       s.local.tee     \ bytes
             s.i64.extend_i32_u
     3       s.i32.const
     rt.push s.call
@@ -1111,43 +1111,48 @@ object.func-end
     wasi.args_sizes_get s.call
       s.drop
     0 s.i32.const
-    0 s.i32.load \ argc
+    0 s.i32.load    \ argc
     1 s.i32.const
     s.i32.gt_u
-    s.if \ need to copy args
+    s.if
+      \ need to copy args
+      \ [size]:1 [len]:4 pad:3 [args ptrs] [arg 1] [args 2-]:@3
+      \ ^0                                 ^1      ^2
 
-      \ [size]:1 [len]:4 [arg 1] [args 2-] padding [arg pointers]
-      \ ^0               ^1      ^2      ^3        ^4
-
+      \ read args
       0 s.local.get
       0 s.i32.load
-      0 s.local.tee \ size
-      5 s.i32.const
+      0 s.local.tee   \ buffer
+      8 s.i32.const
+        s.i32.add     \ (out) *args
+      1 s.local.tee
+      1 s.local.get
+      0 s.i32.const
+      0 s.i32.load    \ argc
+      2 s.i32.const
+        s.i32.shl
         s.i32.add
-      1 s.local.tee \ arg 1
-      4 s.i32.const
-      0 s.i32.load
-        s.i32.add
-      3 s.local.tee \ end of args
-      3 s.i32.const
-        s.i32.add
-      3 not s.i32.const
-        s.i32.and
-      4 s.local.tee \ (out) *argv / arg pointers
-      1 s.local.get \ (out) *argv_buf
+      1 s.local.tee   \ (out) *arg_data
       wasi.args_get s.call
         s.drop
-      4 s.local.get
-      4 s.i32.load
-      2 s.local.set \ args 2-
-      3 s.local.get
-      2 s.local.get
-        s.i32.sub
-      3 s.local.set \ len([args 2-])
-      1 s.local.get \ dest
-      2 s.local.get \ source
-      3 s.local.get \ len
-        s.memory.copy
+
+      \ move to start of buffer
+      0  s.local.get
+      5  s.i32.const
+         s.i32.add   \ dest
+      0  s.local.get
+      12 s.i32.load
+      2  s.local.tee \ source
+      1  s.local.get
+      4  s.i32.const
+      0  s.i32.load  \ (argv_buf_size)
+         s.i32.add
+      2  s.local.get
+         s.i32.sub
+      3  s.local.tee \ len
+         s.memory.copy
+
+      \ set buffer length
       0 s.local.get
       3 s.local.get
       1 s.i32.store
