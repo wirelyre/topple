@@ -135,6 +135,17 @@ def file_read(s):
             s.append([0])
 
 
+def file_write(s):
+    with s.pop([bytearray, bytearray]) as ([contents, filename]):
+        try:
+            mode = "xb"
+            with open(bytes(filename), mode) as file:
+                file.write(contents)
+                s.append([0xFFFF_FFFF_FFFF_FFFF])
+        except IOError:
+            s.append([0])
+
+
 def block_new(s):
     s.append([Pointer()])
 
@@ -190,6 +201,7 @@ primitives = {
     "b@": Primitive(None, bytes_get),
     "b!": Primitive(None, bytes_set),
     "file.read": Primitive(None, file_read),
+    "file.write": Primitive(None, file_write),
     "block.new": Primitive(None, block_new),
     "@": Primitive(None, pointer_get),
     "!": Primitive(None, pointer_set),
